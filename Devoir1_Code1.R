@@ -298,6 +298,11 @@ AIC(logit1)
 BIC(logit1)
 Dev1 = logit1$dev
 
+#Procédure stepwise pour choisir les variables explicatives
+
+step(glm(Surv1~Gender+Type+Category+Occupation+Age+Group1+Bonus+Poldur+Value+Adind+Group2+Density+Nb1+Nb2+offset(log(Exppdays)), data = db1, family = binomial(link="logit")))
+
+#Prédiction
 pred_logit1 = predict(logit1,newdata = db1, type ="response")
 summary(pred_logit1)
 hist(pred_logit1)
