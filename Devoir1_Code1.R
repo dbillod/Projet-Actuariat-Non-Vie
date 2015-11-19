@@ -1,4 +1,3 @@
-
 ###################################
 ## On charge les données ##########
 ###################################
@@ -300,7 +299,12 @@ Dev1 = logit1$dev
 
 #Procédure stepwise pour choisir les variables explicatives
 
-step(glm(Surv1~Gender+Type+Category+Occupation+Age+Group1+Bonus+Poldur+Value+Adind+Group2+Density+Nb1+Nb2+offset(log(Exppdays)), data = db1, family = binomial(link="logit")))
+step1=step(glm(Surv1~Gender+Type+Category+Occupation+Age+Group1+Bonus+Poldur+Value+Adind+Group2+Density+offset(Exppdays), data = db1, family = binomial(link="logit")))
+#Selection avec le BIC 
+library(Rcmdr)
+###### !! Pb : compte log(Exppdays) ou Exppdays ? !! ######
+step2 = stepwise(glm(Surv1~Gender+Type+Category+Occupation+Age+Bonus+Poldur+Value+Adind+Density+offset((Exppdays)), data = db1, family = binomial(link="logit")))
+
 
 #Prédiction
 pred_logit1 = predict(logit1,newdata = db1, type ="response")
@@ -310,7 +314,7 @@ hist(pred_logit1)
 
 #Endogénéité de l'exposition
 with(db1,table(Surv1,Exppdays))
-cor(Surv1,Expddays)
+cor(Surv1,Exppdays)
 
 
 #Tests sur les résidus ?
@@ -322,6 +326,7 @@ hist(ResPearson_logit1)
 ResDeviance_logit1 = residuals(logit1, type = "deviance")
 plot(ResDeviance_logit1)
 hist(ResDeviance_logit1)
+#ermet de voir s'il n'y a pas d'individus qui contribuent plus que d'autres à la déviance du modèle
 
 #Tester la non linéarité par des splines sur l'âge, ou le bonus...
 #Reg locale
@@ -330,6 +335,17 @@ hist(ResDeviance_logit1)
 
 
 #Test du modèle -> ROC,....
+##On choisit notre modèle 
+modele1 = logit1
+s1 = predict(modele1,type='response')
+library(ROCR)
+predict1 = prediction(s1,Surv1)	
+plot(performance(predict1,"tpr","fpr"))
+
+library(pROC)
+roc = plot.roc(Surv1,s1,main="",percent= TRUE, ci=TRUE)
+roc.se = ci.se(roc,specificities =seq(0,15,1))
+plot(roc.se,type="shape",col="light blue")
 
 #Lissages multivariés
 library(mgcv)
@@ -343,6 +359,24 @@ summary(gam1)
 ##----------------------------------------------------------------------##
 ##########################################################################
 
+library(rpart)
+library(rpart.plot)
+arbre1 = rpart(Surv1~Age + Gender + Bonus + Adind, data = db1)
+plotcp(arbre1)
+prp(arbre1,type=2,extra=1)
+
+
+arb2 = rpart(Surv1~Age+Gender+ Bonus + Adind, data = db1, cp =4e-3)
+prp(arb2,type=2,extra=1)
+fancyRpartPlot(arb2, sub="")
+plotcp(arb2)
+library(rattle)
+
+#http://scg.sdsu.edu/ctrees_r/
+arb2$cptable
+
+arb3 = rpart(Surv1~Age+Gender+ Bonus + Adind, data = db1, minsplit = 5)
+fancyRpartPlot(arb3, sub="")
 
 
 ##Améliorartion 1 -> Bagging
