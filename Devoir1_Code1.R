@@ -303,8 +303,9 @@ step1=step(glm(Surv1~Gender+Type+Category+Occupation+Age+Group1+Bonus+Poldur+Val
 #Selection avec le BIC 
 library(Rcmdr)
 ###### !! Pb : compte log(Exppdays) ou Exppdays ? !! ######
-step2 = stepwise(glm(Surv1~Gender+Type+Category+Occupation+Age+Bonus+Poldur+Value+Adind+Density+offset((Exppdays)), data = db1, family = binomial(link="logit")))
-
+###### Semble changer le fait de prendre adind (log) ou Category (pas log) 
+step3 = stepwise(glm(Surv1~Gender+Type+Category+Occupation+Age+Bonus+Poldur+Value+Adind+Density+offset(log(Exppdays)), data = db1, family = binomial(link="logit")))
+summary(step3)
 
 #Prédiction
 pred_logit1 = predict(logit1,newdata = db1, type ="response")
@@ -326,7 +327,7 @@ hist(ResPearson_logit1)
 ResDeviance_logit1 = residuals(logit1, type = "deviance")
 plot(ResDeviance_logit1)
 hist(ResDeviance_logit1)
-#ermet de voir s'il n'y a pas d'individus qui contribuent plus que d'autres à la déviance du modèle
+#permet de voir s'il n'y a pas d'individus qui contribuent plus que d'autres à la déviance du modèle
 
 #Tester la non linéarité par des splines sur l'âge, ou le bonus...
 #Reg locale
@@ -344,7 +345,7 @@ plot(performance(predict1,"tpr","fpr"))
 
 library(pROC)
 roc = plot.roc(Surv1,s1,main="",percent= TRUE, ci=TRUE)
-roc.se = ci.se(roc,specificities =seq(0,15,1))
+roc.se = ci.se(roc,specificities =seq(0,14,1))
 plot(roc.se,type="shape",col="light blue")
 
 #Lissages multivariés
@@ -364,24 +365,34 @@ library(rpart.plot)
 arbre1 = rpart(Surv1~Age + Gender + Bonus + Adind, data = db1)
 plotcp(arbre1)
 prp(arbre1,type=2,extra=1)
-
+arbre1_resp = predict(arbre1)
 
 arb2 = rpart(Surv1~Age+Gender+ Bonus + Adind, data = db1, cp =4e-3)
 prp(arb2,type=2,extra=1)
+library(rattle)
 fancyRpartPlot(arb2, sub="")
 plotcp(arb2)
-library(rattle)
+arb2_resp = predict(arb2)
 
 #http://scg.sdsu.edu/ctrees_r/
 arb2$cptable
 
 arb3 = rpart(Surv1~Age+Gender+ Bonus + Adind, data = db1, minsplit = 5)
 fancyRpartPlot(arb3, sub="")
-
+arb3_resp = predict(arb3)
 
 ##Améliorartion 1 -> Bagging
+library(ipred)
+bag1 = bagging(Surv1~Age+Gender+ Bonus + Adind, data = db1,coob=TRUE)
+bag1
+summary(bag1)
+fancyRpartPlot(bag1, sub="")
+prp(bag1,type=2,extra=1)
+bag1_resp = predict(bag1)
+
 
 ##Amélioriation 2 -> Random Forest
+library(randomForest)
 
 ##Tracé des partial response plots
 
