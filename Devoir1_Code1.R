@@ -175,6 +175,31 @@ hist(Value)
 #Regroupement au-delà de 30 000?
 
 
+Value_class = rep(0,n_db1)
+medianValue = median(Value)
+Q1 = summary(Value)[[2]]
+Q3 = summary(Value)[[5]]
+for ( i in 1: n_db1){
+	if (Value[i]<= medianValue){
+		if (Value[i]>Q1){
+			Value_class[i] = 1
+		}else{
+			Value_class[i] = 0
+		}
+
+	}else{
+		if(Value[i]>Q3){
+			Value_class[i] = 3
+		}else{
+			Value_class[i] = 2
+		}
+	}
+}
+
+##On va incorporer cette variable dans la base
+db1$Value_class = Value_class
+attach(db1)
+
 ##########################################
 ##############   12    ###################
 ##########################################
@@ -231,6 +256,8 @@ hist(Density)
 #Exppdays = db1$Exppdays
 summary(Exppdays)
 hist(Exppdays)
+
+Exppdays = Exppdays/365
 
 
 ###########################################
@@ -297,20 +324,73 @@ AIC(logit1)
 BIC(logit1)
 Dev1 = logit1$dev
 
-#Procédure stepwise pour choisir les variables explicatives
+##Pour sélectionner les variables : test d'indépendance du khi-deux  entre Surv1 et d'autres variables
 
-step1=step(glm(Surv1~Gender+Type+Category+Occupation+Age+Group1+Bonus+Poldur+Value+Adind+Group2+Density+offset(Exppdays), data = db1, family = binomial(link="logit")))
+#Construisons un tableau avec le nom des variables, puis la p-value associé au tst d'indépendance du khi2
+#On met dans le tableau des pval des 2 pour mieux voir une éventuelle erreur
+
+name = names(db1)
+name = name[-which(name == "Nb1" | name == "Nb2" | name=="Surv1"| name == "Surv2" | name=="PolNum" |name=="CalYear")]
+test_indep  = data.frame(nom_var = name, pval = rep(2,length(name)), pourcent5 = rep(2,length(name)))#,errmessage = rep(0,length(name)))
+
+#taillewarnings = length(warnings())
+for (i in 1:length(name)){
+	var_act = test_indep[i,1]
+	table_act = table(db1[,var_act],Surv1)
+	chisqtest_act = chisq.test(table_act)
+	
+	test_indep[i,2] = chisqtest_act$p.value
+	#if (length(warnings())> taillewarnings){
+	#	taillewarnings = taillewarnings +1
+	#	test_indep[i,4] = 1 
+	#}
+
+}
+test_indep[,3] = test_indep[,2]>0.05
+test_indep
+#Prob avec : Value -> Value_class : on rejette l'indépendance
+#On ne considère plus Adind
+
+if (FALSE){
+chisq.test(table(Gender,Surv1))
+chisq.test(table(Type,Surv1))
+chisq.test(table(Category,Surv1))
+chisq.test(table(Occupation,Surv1))
+chisq.test(table(Age,Surv1))
+chisq.test(table(Group1,Surv1))
+chisq.test(table(Bonus,Surv1))
+chisq.test(table(Poldur,Surv1))
+chisq.test(table(Value,Surv1))
+chisq.test(table(Adind,Surv1))
+chisq.test(table(SubGroup2,Surv1))
+chisq.test(table(Group2,Surv1))
+chisq.test(table(Density,Surv1))
+chisq.test(table(Exppdays,Surv1))
+}
+
+
+#Procédure stepwise pour choisir les variables explicatives
+#On ne garde pas les variables de groupe
+
+step1=step(glm(Surv1~Gender+Type+Category+Occupation+Age+Group1+Bonus+Poldur+Value+Adind+Group2+Density+offset(log(Exppdays)), data = db1, family = binomial(link="logit")))
 #Selection avec le BIC 
 library(Rcmdr)
 ###### !! Pb : compte log(Exppdays) ou Exppdays ? !! ######
+###### -> Il semble qu'il faille prendre le log, mais en ayant recodé la variable pour avoir E dans [0,1]
 ###### Semble changer le fait de prendre adind (log) ou Category (pas log) 
-step3 = stepwise(glm(Surv1~Gender+Type+Category+Occupation+Age+Bonus+Poldur+Value+Adind+Density+offset(log(Exppdays)), data = db1, family = binomial(link="logit")))
+step3 = stepwise(glm(Surv1~
+Gender+Type+Category+Occupation+Age+Bonus+Poldur+Value+Density+offset(log(Exppdays)), 
+data = db1, family = binomial(link="logit")))
+
+#On enlève simplement Category
 summary(step3)
 
 #Prédiction
 pred_logit1 = predict(logit1,newdata = db1, type ="response")
 summary(pred_logit1)
 hist(pred_logit1)
+
+pred_step3 = predict(step3, newdata = db1, type = 'response')
 
 
 #Endogénéité de l'exposition
@@ -337,15 +417,16 @@ hist(ResDeviance_logit1)
 
 #Test du modèle -> ROC,....
 ##On choisit notre modèle 
-modele1 = logit1
+modele1 = step3
 s1 = predict(modele1,type='response')
 library(ROCR)
 predict1 = prediction(s1,Surv1)	
 plot(performance(predict1,"tpr","fpr"))
+abline(c(0,1))
 
 library(pROC)
 roc = plot.roc(Surv1,s1,main="",percent= TRUE, ci=TRUE)
-roc.se = ci.se(roc,specificities =seq(0,14,1))
+roc.se = ci.se(roc,specificities =seq(0,5,1))
 plot(roc.se,type="shape",col="light blue")
 
 #Lissages multivariés
