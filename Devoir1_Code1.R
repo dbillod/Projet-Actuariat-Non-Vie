@@ -257,6 +257,9 @@ hist(Density)
 summary(Exppdays)
 hist(Exppdays)
 
+#!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!#
+# On va consdérer l'exposition comme fraction d'année  #
+#!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!#
 Exppdays = Exppdays/365
 
 
@@ -372,18 +375,42 @@ chisq.test(table(Exppdays,Surv1))
 #Procédure stepwise pour choisir les variables explicatives
 #On ne garde pas les variables de groupe
 
-step1=step(glm(Surv1~Gender+Type+Category+Occupation+Age+Group1+Bonus+Poldur+Value+Adind+Group2+Density+offset(log(Exppdays)), data = db1, family = binomial(link="logit")))
-#Selection avec le BIC 
-library(Rcmdr)
+
+##---------------------------------##
+##	Selection stepwise	     ##
+##---------------------------------##
+
 ###### !! Pb : compte log(Exppdays) ou Exppdays ? !! ######
 ###### -> Il semble qu'il faille prendre le log, mais en ayant recodé la variable pour avoir E dans [0,1]
 ###### Semble changer le fait de prendre adind (log) ou Category (pas log) 
+
+#================#
+# 	AIC	     #
+#================#
+step1=step(glm(Surv1~
+Gender+Type+Category+Occupation+Age+Bonus+Poldur+Value+Density+offset(log(Exppdays)), 
+data = db1, family = binomial(link="logit")))
+#Cette sélection avec l'AIC n'enlève rien
+
+#================#
+#	BIC	     #
+#================#
+
+library(Rcmdr)
+
 step3 = stepwise(glm(Surv1~
 Gender+Type+Category+Occupation+Age+Bonus+Poldur+Value+Density+offset(log(Exppdays)), 
 data = db1, family = binomial(link="logit")))
 
-#On enlève simplement Category
 summary(step3)
+
+#On enlève simplement Category
+
+##-------------------------------##
+## On retient un certain modèle  ##
+##-------------------------------##
+
+modele1 = step3
 
 #Prédiction
 pred_logit1 = predict(logit1,newdata = db1, type ="response")
@@ -414,15 +441,18 @@ hist(ResDeviance_logit1)
 
 #Test de non linéarité de Fisher
 
+#============================#
+# Test du modèle -> ROC,.... #
+#============================#
+library (hmeasure)
 
-#Test du modèle -> ROC,....
-##On choisit notre modèle 
-modele1 = step3
 s1 = predict(modele1,type='response')
 library(ROCR)
 predict1 = prediction(s1,Surv1)	
 plot(performance(predict1,"tpr","fpr"))
 abline(c(0,1))
+
+HMeasure(Surv1,s1)$metrics[,1:5]
 
 library(pROC)
 roc = plot.roc(Surv1,s1,main="",percent= TRUE, ci=TRUE)
