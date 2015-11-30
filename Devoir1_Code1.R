@@ -401,19 +401,42 @@ data = db1, family = binomial(link="logit")))
 
 library(Rcmdr)
 
-step3 = stepwise(glm(Surv1~
+step2 = stepwise(glm(Surv1~
 Gender+Type+Category+Occupation+Age+Bonus+Poldur+Value+Density+as.factor(Group1)+Group2
 +offset(log(Exppdays)), 
 data = db1, family = binomial(link="logit")))
 
-summary(step3)
+summary(step2)
 
 #On enlève simplement Category et Value
 
 #Les sorties suggèrent certaines fusions dans les modalités de Group1 et Group2 
 
 ##Group1 : 1 = 2 = 3 = 4
+
+Group1_2 = Group1
+indiceGroup1_2 = which(Group1 == 1 | Group1 == 2 | Group1 == 3 | Group1 == 4)
+Group1_2[indiceGroup1_2] = 1
+
 ##Group2 : L = S = T = U
+Group2_2 = Group2
+indiceGroup2_2 = which(Group2 == "L" | Group2 == "S" | Group2 == "T" | Group2 == "U" )
+Group2_2[indiceGroup2_2] = "L"
+
+#--------------------#
+## -> Nouveau modèle #
+#--------------------#
+
+
+step3 = stepwise(glm(Surv1~
+Gender+Type+Category+Occupation+Age+Bonus+Poldur+Value+Density+as.factor(Group1_2)+Group2_2
++offset(log(Exppdays)), 
+data = db1, family = binomial(link="logit")))
+
+summary(step3)
+
+#On enlève Category et Value
+
 
 ##-------------------------------##
 ## On retient un certain modèle  ##
@@ -480,7 +503,10 @@ plot(roc.se,type="shape",col="light blue")
 #Lissages multivariés
 library(mgcv)
 
-gam1 = gam(Surv1~s(Age,Bonus)+offset(log(Exppdays))+Gender,data= db1,family=binomial)
+gam1 = gam(Surv1~
+s(Gender+Type+Category+Occupation+Age+Bonus+Poldur+Value+Density+as.factor(Group1_2)+Group2_2)
++offset(log(Exppdays))
+,data= db1,family=binomial)
 summary(gam1)
 
 ##########################################################################
@@ -504,15 +530,20 @@ arbre1_resp = predict(arbre1)
 ##Optimisation à faire sur cp
 arb2 = rpart(Surv1~
 Gender+Type+Category+Occupation+Age+Bonus+Poldur+Value+Density+as.factor(Group1)+Group2
-, data = db1, cp =4e-3)
+, data = db1, cp = 4e-3)
 prp(arb2,type=2,extra=1)
 library(rattle)
 fancyRpartPlot(arb2, sub="")
+
 plotcp(arb2)
 arb2_resp = predict(arb2)
 
 #http://scg.sdsu.edu/ctrees_r/
 arb2$cptable
+rel_err = arb2$cptable[,4]
+which(rel_err == min(rel_err))
+cpopt = arb2$cptable[which(rel_err==min(rel_err)),1]
+cpopt
 
 arb3 = rpart(Surv1~Age+Gender+ Bonus + Adind, data = db1, minsplit = 5)
 fancyRpartPlot(arb3, sub="")
@@ -524,7 +555,7 @@ arb3_resp = predict(arb3)
 library(ipred)
 bag1 = bagging(Surv1~
 Gender+Type+Category+Occupation+Age+Bonus+Poldur+Value+Density+as.factor(Group1)+Group2
-, data = db1,coob=TRUE)
+,data = db1,coob=TRUE, nbagg = 25)
 bag1
 summary(bag1)
 fancyRpartPlot(bag1, sub="")
@@ -538,6 +569,14 @@ hist(bag1_resp)
 ####################################
 library(randomForest)
 
+rf1 = randomForest(Surv1~
+Gender+Type+Category+Occupation+Age+Bonus+Poldur+Value+Density+as.factor(Group1)+Group2
+,data  = db1)
+
+
+rf2 = randomForest(Surv1~
+Gender+Type+Occupation+Age+Bonus+Poldur+Density+as.factor(Group1)+Group2
+,data  = db1)
 
 
 
@@ -548,7 +587,27 @@ library(randomForest)
 ##Amélioration 3 -> Boosting##
 ##############################
 
-modele2 = arb2
+v = 0.05
+
+library(freeknotsplines)
+residus_boosting = Surv1 - mean(Surv1)
+
+YP = c()
+for (k in 1:100){
+	fit_boosting = rpart(residus_boosting ~ Gender+Type+Category+Occupation+Age+Bonus+Poldur+Value+Density+as.factor(Group1)+Group2)
+	residus_boosting = Surv1 - v*predict(fit_boosting)
+	YP = cbind(YP, v*predict(fit_boosting))
+}
+
+pred_boosting = apply(YP,1,sum)
+
+#PB : prédictions >1 !!!
+
+
+
+
+
+modele2 = bag1
 
 ##Tests du 2eme modèle : Courbes ROC
 
