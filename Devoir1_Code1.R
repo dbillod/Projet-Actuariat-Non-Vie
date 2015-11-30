@@ -136,6 +136,8 @@ hist(Age)
 summary(Group1)
 hist(Group1)
 
+Group1 = as.factor(Group1)
+
 #Eventuellement réduire le nombre de groupe
 
 
@@ -333,7 +335,7 @@ Dev1 = logit1$dev
 #On met dans le tableau des pval des 2 pour mieux voir une éventuelle erreur
 
 name = names(db1)
-name = name[-which(name == "Nb1" | name == "Nb2" | name=="Surv1"| name == "Surv2" | name=="PolNum" |name=="CalYear")]
+name = name[-which(name == "Nb1" | name == "Nb2" | name=="Surv1"| name == "Surv2" )] #| name=="PolNum" |name=="CalYear")]
 test_indep  = data.frame(nom_var = name, pval = rep(2,length(name)), pourcent5 = rep(2,length(name)))#,errmessage = rep(0,length(name)))
 
 #taillewarnings = length(warnings())
@@ -388,7 +390,8 @@ chisq.test(table(Exppdays,Surv1))
 # 	AIC	     #
 #================#
 step1=step(glm(Surv1~
-Gender+Type+Category+Occupation+Age+Bonus+Poldur+Value+Density+offset(log(Exppdays)), 
+Gender+Type+Category+Occupation+Age+Bonus+Poldur+Value+Density
++offset(log(Exppdays)), 
 data = db1, family = binomial(link="logit")))
 #Cette sélection avec l'AIC n'enlève rien
 
@@ -399,12 +402,18 @@ data = db1, family = binomial(link="logit")))
 library(Rcmdr)
 
 step3 = stepwise(glm(Surv1~
-Gender+Type+Category+Occupation+Age+Bonus+Poldur+Value+Density+offset(log(Exppdays)), 
+Gender+Type+Category+Occupation+Age+Bonus+Poldur+Value+Density+as.factor(Group1)+Group2
++offset(log(Exppdays)), 
 data = db1, family = binomial(link="logit")))
 
 summary(step3)
 
-#On enlève simplement Category
+#On enlève simplement Category et Value
+
+#Les sorties suggèrent certaines fusions dans les modalités de Group1 et Group2 
+
+##Group1 : 1 = 2 = 3 = 4
+##Group2 : L = S = T = U
 
 ##-------------------------------##
 ## On retient un certain modèle  ##
@@ -440,6 +449,13 @@ hist(ResDeviance_logit1)
 #Reg locale
 
 #Test de non linéarité de Fisher
+library(lmtest)
+
+resettest(modele1,type="fitted")
+resettest(modele1,type="regressor")
+resettest(modele1,type="princomp")
+##Les 3 tests rejettent l'hyp nulle : influence des puissances
+## ATTENTION : les variables factors sont enlevées
 
 #============================#
 # Test du modèle -> ROC,.... #
@@ -454,10 +470,12 @@ abline(c(0,1))
 
 HMeasure(Surv1,s1)$metrics[,1:5]
 
+############# Très long, et fait souvent planter R ############
 library(pROC)
 roc = plot.roc(Surv1,s1,main="",percent= TRUE, ci=TRUE)
 roc.se = ci.se(roc,specificities =seq(0,5,1))
 plot(roc.se,type="shape",col="light blue")
+###############################################################
 
 #Lissages multivariés
 library(mgcv)
@@ -473,12 +491,20 @@ summary(gam1)
 
 library(rpart)
 library(rpart.plot)
-arbre1 = rpart(Surv1~Age + Gender + Bonus + Adind, data = db1)
+
+## Prendre en compte ou pas l'exposition dans les arbres?
+arbre1 = rpart(Surv1~
+Gender+Type+Category+Occupation+Age+Bonus+Poldur+Value+Density+as.factor(Group1)+Group2
+, data = db1)
 plotcp(arbre1)
 prp(arbre1,type=2,extra=1)
 arbre1_resp = predict(arbre1)
 
-arb2 = rpart(Surv1~Age+Gender+ Bonus + Adind, data = db1, cp =4e-3)
+
+##Optimisation à faire sur cp
+arb2 = rpart(Surv1~
+Gender+Type+Category+Occupation+Age+Bonus+Poldur+Value+Density+as.factor(Group1)+Group2
+, data = db1, cp =4e-3)
 prp(arb2,type=2,extra=1)
 library(rattle)
 fancyRpartPlot(arb2, sub="")
@@ -492,19 +518,44 @@ arb3 = rpart(Surv1~Age+Gender+ Bonus + Adind, data = db1, minsplit = 5)
 fancyRpartPlot(arb3, sub="")
 arb3_resp = predict(arb3)
 
-##Améliorartion 1 -> Bagging
+##############################
+##Améliorartion 1 -> Bagging##
+##############################
 library(ipred)
-bag1 = bagging(Surv1~Age+Gender+ Bonus + Adind, data = db1,coob=TRUE)
+bag1 = bagging(Surv1~
+Gender+Type+Category+Occupation+Age+Bonus+Poldur+Value+Density+as.factor(Group1)+Group2
+, data = db1,coob=TRUE)
 bag1
 summary(bag1)
 fancyRpartPlot(bag1, sub="")
 prp(bag1,type=2,extra=1)
 bag1_resp = predict(bag1)
+summary(bag1_resp)
+hist(bag1_resp)
 
-
-##Amélioriation 2 -> Random Forest
+####################################
+##Amélioriation 2 -> Random Forest##
+####################################
 library(randomForest)
+
+
+
 
 ##Tracé des partial response plots
 
-##Amélioration 3 -> Boosting
+
+##############################
+##Amélioration 3 -> Boosting##
+##############################
+
+modele2 = arb2
+
+##Tests du 2eme modèle : Courbes ROC
+
+s2 = predict(modele2)
+library(ROCR)
+predict2 = prediction(s2,Surv1)	
+plot(performance(predict2,"tpr","fpr"))
+abline(c(0,1))
+
+HMeasure(Surv1,s2)$metrics[,1:5]
