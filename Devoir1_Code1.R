@@ -549,34 +549,82 @@ arb3 = rpart(Surv1~Age+Gender+ Bonus + Adind, data = db1, minsplit = 5)
 fancyRpartPlot(arb3, sub="")
 arb3_resp = predict(arb3)
 
+
+
+
+predict_arb = prediction(arb2_resp,Surv1)
+plot(performance(predict_arb,"tpr","fpr"))
+abline(c(0,1))
+
+library(hmeasure)
+HMeasure(Surv1,arb2_resp)$metrics[,1:5]
+## AUC = 0.689
+
+
+
+
+
 ##############################
 ##Améliorartion 1 -> Bagging##
 ##############################
 library(ipred)
 bag1 = bagging(Surv1~
 Gender+Type+Category+Occupation+Age+Bonus+Poldur+Value+Density+as.factor(Group1)+Group2
-,data = db1,coob=TRUE, nbagg = 25)
+,data = db1,coob=TRUE, nbagg = 50)
 bag1
+bag1_resp = predict(bag1)
+
+predict_bagging = prediction(bag1_resp,Surv1)
+plot(performance(predict_bagging,"tpr","fpr"))
+abline(c(0,1))
+
+library(hmeasure)
+HMeasure(Surv1,bag1_resp)$metrics[,1:5]
+## AUC : 0.676 pour nbagg = 25
+##	   0.680 pour nbagg = 50
+
+
+summary(bag1_resp)
+hist(bag1_resp)
+
 summary(bag1)
 fancyRpartPlot(bag1, sub="")
 prp(bag1,type=2,extra=1)
-bag1_resp = predict(bag1)
-summary(bag1_resp)
-hist(bag1_resp)
 
 ####################################
 ##Amélioriation 2 -> Random Forest##
 ####################################
 library(randomForest)
 
+ind = sample(1:n_db1, floor(n_db1/50))
+db0 = db1[ind,]
+
+
 rf1 = randomForest(Surv1~
-Gender+Type+Category+Occupation+Age+Bonus+Poldur+Value+Density+as.factor(Group1)+Group2
-,data  = db1)
+Gender+Type+Category+Occupation+Age+Bonus+Poldur+Value+Density+Group1+Group2
+,data  = db0, ntree = 500, mtry = 15)
+rf1
+
+
+#Gender+Type+Category+Occupation+Age+Bonus+Poldur+Value+Density+Group1+Group2
 
 
 rf2 = randomForest(Surv1~
 Gender+Type+Occupation+Age+Bonus+Poldur+Density+as.factor(Group1)+Group2
 ,data  = db1)
+
+varImpPlot(rf1, main="")
+importance(rf1)
+
+
+rf1_resp = predict(rf1)
+Surv0 = Surv1[ind]
+predict_rf = prediction(rf1_resp,Surv0)
+plot(performance(predict_rf,"tpr","fpr"))
+abline(c(0,1))
+
+library(hmeasure)
+HMeasure(Surv0,rf1_resp)$metrics[,1:5]
 
 
 
@@ -587,9 +635,9 @@ Gender+Type+Occupation+Age+Bonus+Poldur+Density+as.factor(Group1)+Group2
 ##Amélioration 3 -> Boosting##
 ##############################
 
-v = 0.05
-
 library(freeknotsplines)
+
+v = 0.05
 residus_boosting = Surv1 - mean(Surv1)
 
 YP = c()
@@ -600,11 +648,32 @@ for (k in 1:100){
 }
 
 pred_boosting = apply(YP,1,sum)
+pred_boosting
+max(pred_boosting)
+min(pred_boosting)
+
+predict_boosting = prediction(pred_boosting,Surv1)
+plot(performance(predict_boosting,"tpr","fpr"))
+abline(c(0,1))
+
+library(hmeasure)
+HMeasure(Surv1,pred_boosting)$metrics[,1:5]
 
 #PB : prédictions >1 !!!
+##Boosting sans cp, avec 100 ité : AUC = 0.677
 
 
+######################################
+## Boosting avec splines linéraires ##
+######################################
 
+#library (freeknotsplines)
+#res_boost = Surv1 - mean(Surv1)
+#for (k in 1:100){
+#	noeuds = freelsgen(Gender+Type+Category+Occupation+Age+Bonus+Poldur+Value+Density+as.factor(Group1)+Group2
+#	, res_boost, degree = 1 , numknot = 2)
+#	fit_boost = lm(res_boost~bs())
+#}	
 
 
 modele2 = bag1
@@ -618,3 +687,265 @@ plot(performance(predict2,"tpr","fpr"))
 abline(c(0,1))
 
 HMeasure(Surv1,s2)$metrics[,1:5]
+
+
+
+
+
+
+
+
+
+
+
+
+
+#Test âge
+
+Age2 = Age^2
+
+reg_car = glm(Surv1~(Age+Age2), data = db1, family = binomial)
+pred_car = predict(reg_car, type = 'response')
+plot(pred_car~Age,db1)
+
+
+reg_age1 = glm(Surv1~(Age), data = db1, family = binomial)
+pred_age1 = predict(reg_age1, type = 'response')
+plot(pred_age1~Age,db1)
+
+
+
+library(splines)
+reg_age = glm(Surv1~bs(Age), data = db1, family = binomial)
+pred_age = predict(reg_age, type = 'response')
+plot(pred_age~Age,db1)
+
+smoothingSpline = smooth.spline(Age, Surv1, spar=0.35)
+plot(Age,Surv1)
+lines(smoothingSpline)
+
+
+AGE = c(17,25 ,35,50,65,80,100)
+reg_cut = glm(Surv1~cut(Age,breaks =AGE), data = db1, family = binomial)
+pred_cut = predict(reg_cut,type = 'response')
+
+plot(pred_cut~Age,db1)
+
+
+
+reg_factor = glm(Surv1~as.factor(Age), data = db1, family = binomial)
+pred_factor = predict(reg_factor,type = 'response')
+plot(pred_factor~Age,db1)
+
+mat_age = matrix(1, nrow = n_db1, ncol = 2)
+mat_age[,1] = pred_factor
+mat_age[,2] = pred_age
+matplot(Age,mat_age)
+
+
+
+############################################
+## -> CCL : pas de regroupement ############
+############################################
+
+
+
+#Test densité
+
+reg_dens = glm(Surv1~(Density), data = db1, family = binomial)
+pred_dens = predict(reg_dens, type ='response')
+plot(pred_dens~Density,db1)
+
+reg_dens_sp = glm(Surv1~bs(Density_dix), data = db1, family = binomial)
+pred_dens_sp = predict(reg_dens_sp, type ='response')
+plot(pred_dens_sp~Density,db1)
+
+reg_dens_fac = glm(Surv1~as.factor(Density), data = db1, family = binomial)
+pred_dens_fac = predict(reg_dens_fac, type ='response')
+plot(pred_dens_fac~Density,db1)
+
+reg_dens_fac = glm(Surv1~as.factor(Density_dix), data = db1, family = binomial)
+pred_dens_fac = predict(reg_dens_fac, type ='response')
+plot(pred_dens_fac~Density,db1)
+
+
+mat_dens = matrix(1, nrow = n_db1, ncol = 2)
+mat_dens[,1] = pred_dens_fac
+mat_dens[,2] = pred_dens
+
+matplot(Density_dix,mat_dens)
+
+
+
+#################################
+## -> CCL : Mettre des splines ##
+#################################
+
+
+
+#Test bonus
+
+reg_bonus  = glm(Surv1~(Bonus), data = db1, family = binomial)
+pred_bonus = predict(reg_bonus, type ='response')
+plot(pred_bonus~Bonus,db1)
+
+reg_bonus_sp = glm(Surv1~bs(Bonus), data = db1, family = binomial)
+pred_bonus_sp = predict(reg_bonus_sp, type ='response')
+plot(pred_bonus_sp~Bonus,db1)
+
+reg_bonus_fac = glm(Surv1~as.factor(Bonus), data = db1, family = binomial)
+pred_bonus_fac = predict(reg_bonus_fac, type ='response')
+plot(pred_bonus_fac~Bonus,db1)
+
+
+mat_bonus = matrix(1, nrow = n_db1, ncol = 2)
+mat_bonus[,1] = pred_bonus_fac
+mat_bonus[,2] = pred_bonus_sp
+
+matplot(Bonus,mat_bonus)
+
+####################################
+## -> CCL : Mettre des splines #####
+####################################
+
+
+#Test Ancienneté
+
+reg_dur = glm(Surv1~(Poldur), data = db1, family = binomial)
+pred_dur = predict(reg_dur, type ='response')
+plot(pred_dur~Poldur,db1)
+
+reg_dur_sp = glm(Surv1~bs(Poldur), data = db1, family = binomial)
+pred_dur_sp = predict(reg_dur_sp, type ='response')
+plot(pred_dur_sp~Poldur,db1)
+
+reg_dur_fac = glm(Surv1~as.factor(Poldur), data = db1, family = binomial)
+pred_dur_fac = predict(reg_dur_fac, type ='response')
+plot(pred_dur_fac~Poldur,db1)
+
+mat_dur = matrix(1, nrow = n_db1, ncol = 2)
+mat_dur[,1] = pred_dur_fac
+mat_dur[,2] = pred_dur
+
+matplot(Poldur,mat_dur)
+
+###################################
+## -> Mettre des splines ##########
+###################################
+
+
+
+
+####BONUS
+Bonus_positif<-rep(0,n_db1)
+
+for (i in 1:n_db1){
+if (Bonus[i]>=0){Bonus_positif[i]<-Bonus[i]}
+}
+
+Bonus_negatif<-rep(0,n_db1)
+for (i in 1:n_db1){
+if (Bonus[i]<0){Bonus_negatif[i]<-Bonus[i]}
+}
+
+#Sans discretisation
+
+step = glm(Surv1~
+Gender+Type+Occupation+Age+Bonus_positif+Bonus_negatif+Poldur+Density+as.factor(Group1_2)+Group2_2
++offset(log(Exppdays)), 
+data = db1, family = binomial(link="logit"))
+
+summary(step)
+
+#test égalité bonus
+test_bonus  = (step$coeff[[13]]-step$coeff[[14]])/sqrt( vcov(step)[13,13]+ vcov(step)[14,14] - 2*vcov(step)[13,14]  )
+test_bonus
+##-> Diférence significative
+
+vcov(step)
+
+#------#
+#Bonus #
+#------#
+
+M_max = 20
+
+res_bonus_sp_opt1 = data.frame(M_bonus_sp_opt1 = c(1:M_max),MSE_bonus_sp_opt1 = c(1:M_max))
+for ( i in 1 : M_max){
+	reg_bonus_sp_opt1 = glm(Surv1~bs(Bonus, df = i, degree = 1), data = db1, family = binomial)
+	#pred_bonus_sp_opt1 = predict(reg_bonus_sp_opt1, type ='response')
+	#plot(pred_bonus_sp_opt1~Bonus,db1)
+	res_bonus_sp_opt1 [i,2] = mean(reg_bonus_sp_opt1$residuals^2)
+}
+plot(res_bonus_sp_opt1[,1], res_bonus_sp_opt1[,2])
+
+
+res_bonus_sp_opt2 = data.frame(M_bonus_sp_opt2 = c(1:M_max),MSE_bonus_sp_opt2 = c(1:M_max))
+for ( i in 1 : M_max){
+	reg_bonus_sp_opt2 = glm(Surv1~bs(Bonus, df = i, degree = 2), data = db1, family = binomial)
+	#pred_bonus_sp_opt2 = predict(reg_bonus_sp_opt2, type ='response')
+	#plot(pred_bonus_sp_opt2~Bonus,db1)
+	res_bonus_sp_opt2 [i,2] = mean(reg_bonus_sp_opt2$residuals^2)
+}
+plot(res_bonus_sp_opt1[,1], res_bonus_sp_opt2[,2])
+
+
+res_bonus_sp_opt3 = data.frame(M_bonus_sp_opt3 = c(1:M_max),MSE_bonus_sp_opt3 = c(1:M_max))
+for ( i in 1 : M_max){
+	reg_bonus_sp_opt3 = glm(Surv1~bs(Bonus, df = i, degree = 3), data = db1, family = binomial)
+	#pred_bonus_sp_opt3 = predict(reg_bonus_sp_opt3, type ='response')
+	#plot(pred_bonus_sp_opt3~Bonus,db1)
+	res_bonus_sp_opt3 [i,2] = mean(reg_bonus_sp_opt3$residuals^2)
+}
+plot(res_bonus_sp_opt3[,1], res_bonus_sp_opt3[,2])
+
+
+
+#---------#
+# Density #
+#---------#
+
+
+
+M_max = 20
+
+res_dens_sp_opt1 = data.frame(M_dens_sp_opt1 = c(1:M_max),MSE_dens_sp_opt1 = c(1:M_max))
+for ( i in 1 : M_max){
+	reg_dens_sp_opt1 = glm(Surv1~bs(Density, df = i, degree = 1), data = db1, family = binomial)
+	#pred_dens_sp_opt1 = predict(reg_dens_sp_opt1, type ='response')
+	#plot(pred_dens_sp_opt1~Density,db1)
+	res_dens_sp_opt1 [i,2] = mean(reg_dens_sp_opt1$residuals^2)
+}
+plot(res_dens_sp_opt1[,1], res_dens_sp_opt1[,2])
+
+
+res_dens_sp_opt2 = data.frame(M_dens_sp_opt2 = c(1:M_max),MSE_dens_sp_opt2 = c(1:M_max))
+for ( i in 1 : M_max){
+	reg_dens_sp_opt2 = glm(Surv1~bs(Density, df = i, degree = 2), data = db1, family = binomial)
+	#pred_dens_sp_opt2 = predict(reg_dens_sp_opt2, type ='response')
+	#plot(pred_dens_sp_opt2~Density,db1)
+	res_dens_sp_opt2 [i,2] = mean(reg_dens_sp_opt2$residuals^2)
+}
+plot(res_dens_sp_opt2[,1], res_dens_sp_opt2[,2])
+
+
+res_dens_sp_opt3 = data.frame(M_dens_sp_opt3 = c(1:M_max),MSE_dens_sp_opt3 = c(1:M_max))
+for ( i in 1 : M_max){
+	reg_dens_sp_opt3 = glm(Surv1~bs(Density, df = i, degree = 3), data = db1, family = binomial)
+	#pred_dens_sp_opt3 = predict(reg_dens_sp_opt3, type ='response')
+	#plot(pred_dens_sp_opt3~Density,db1)
+	res_dens_sp_opt3 [i,2] = mean(reg_dens_sp_opt3$residuals^2)
+}
+plot(res_dens_sp_opt3[,1], res_dens_sp_opt3[,2])
+
+
+
+
+
+
+
+
+
+
+
+
