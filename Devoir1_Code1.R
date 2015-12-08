@@ -484,10 +484,13 @@ resettest(modele1,type="princomp")
 # Test du modèle -> ROC,.... #
 #============================#
 library (hmeasure)
+library (ggplot2)
+
 
 s1 = predict(modele1,type='response')
 library(ROCR)
 predict1 = prediction(s1,Surv1)	
+#qplot(performance(predict1,"tpr","fpr"))
 plot(performance(predict1,"tpr","fpr"))
 abline(c(0,1))
 
@@ -712,7 +715,7 @@ plot(pred_car~Age,db1)
 reg_age1 = glm(Surv1~(Age), data = db1, family = binomial)
 pred_age1 = predict(reg_age1, type = 'response')
 plot(pred_age1~Age,db1)
-
+qplot(pred_age1,Age, geom = c("point", "smooth"))+ geom_line(size=1, color = 'blue')
 
 
 library(splines)
@@ -732,15 +735,37 @@ pred_cut = predict(reg_cut,type = 'response')
 plot(pred_cut~Age,db1)
 
 
-
 reg_factor = glm(Surv1~as.factor(Age), data = db1, family = binomial)
 pred_factor = predict(reg_factor,type = 'response')
 plot(pred_factor~Age,db1)
 
 mat_age = matrix(1, nrow = n_db1, ncol = 2)
 mat_age[,1] = pred_factor
+mat_age[,2] = pred_age1
+#matplot(Age,mat_age)
+
+
+data_age = as.data.frame(mat_age)
+data_age[,3] = Age
+ggplot(data_age,aes(x = Age, y=pred_factor,colour = "pred_factor"))+
+	geom_line()+
+	geom_line(data = data_age , aes(x=Age,y=pred_age,color= "pred_age1"))+
+	ylab("Prédiction")+
+	scale_colour_manual("",breaks = c("pred_factor","pred_age1"),values = c("black", "red"))
+
+
+mat_age = matrix(1, nrow = n_db1, ncol = 2)
+mat_age[,1] = pred_factor
 mat_age[,2] = pred_age
-matplot(Age,mat_age)
+
+data_age = as.data.frame(mat_age)
+data_age[,3] = Age
+ggplot(data_age,aes(x = Age, y=pred_factor,colour = "pred_factor"))+
+	geom_line()+
+	geom_line(data = data_age , aes(x=Age,y=pred_age,color= "pred_age"))+
+	ylab("Prédiction")+
+	scale_colour_manual("",breaks = c("pred_factor","pred_age"),values = c("black", "red"))
+
 
 
 
@@ -752,7 +777,17 @@ matplot(Age,mat_age)
 
 #Test densité
 
-reg_dens = glm(Surv1~(Density), data = db1, family = binomial)
+
+Density_arrond<-round(Density,0)
+#table(Density_arrond)
+#hist(Density_arrond)
+
+Density_dix<-ceiling(Density_arrond/10) * 10
+#table(Density_dix)
+#hist(Density_dix)
+
+
+reg_dens = glm(Surv1~(Density_dix), data = db1, family = binomial)
 pred_dens = predict(reg_dens, type ='response')
 plot(pred_dens~Density,db1)
 
@@ -773,7 +808,35 @@ mat_dens = matrix(1, nrow = n_db1, ncol = 2)
 mat_dens[,1] = pred_dens_fac
 mat_dens[,2] = pred_dens
 
-matplot(Density_dix,mat_dens)
+#matplot(Density_dix,mat_dens)
+
+
+data_dens = as.data.frame(mat_dens)
+data_age[,3] = Density_dix
+ggplot(data_dens,aes(x = Density_dix, y=pred_dens_fac,colour = "A pred_dens_fac"))+
+	geom_line()+
+	geom_line(data = data_age , aes(x=Density_dix,y=pred_dens,color= "B pred_dens"))+
+	ylab("Prédiction")+
+	scale_colour_manual("",breaks = c("A pred_dens_fac","B pred_dens"),values = c("black", "red"))
+
+
+mat_age = matrix(1, nrow = n_db1, ncol = 2)
+mat_age[,1] = pred_dens_fac
+mat_age[,2] = pred_dens_sp
+
+data_dens = as.data.frame(mat_dens)
+data_age[,3] = Density_dix
+ggplot(data_dens,aes(x = Density_dix, y=pred_dens_fac,colour = "pred_dens_fac"))+
+	geom_line()+
+	geom_line(data = data_age , aes(x=Density_dix,y=pred_dens_sp,color= "pred_dens_sp"))+
+	ylab("Prédiction")+
+	scale_colour_manual("",breaks = c("pred_dens_fac","pred_dens_sp"),values = c("black", "red"))
+
+
+
+
+
+
 
 
 
@@ -899,6 +962,8 @@ for ( i in 1 : M_max){
 }
 plot(res_bonus_sp_opt3[,1], res_bonus_sp_opt3[,2])
 
+liste_min = c(min(res_bonus_sp_opt1[,2]), min(res_bonus_sp_opt2[,2]),min(res_bonus_sp_opt3[,2]))
+
 
 
 #---------#
@@ -938,8 +1003,8 @@ for ( i in 1 : M_max){
 }
 plot(res_dens_sp_opt3[,1], res_dens_sp_opt3[,2])
 
-
-
+liste_min = c( min(res_dens_sp_opt1[,2]), min(res_dens_sp_opt2[,2]), min(res_dens_sp_opt3[,2]) )
+liste_min
 
 
 
