@@ -1007,6 +1007,46 @@ liste_min = c( min(res_dens_sp_opt1[,2]), min(res_dens_sp_opt2[,2]), min(res_den
 liste_min
 
 
+#---------#
+# Poldur  #
+#---------#
+
+
+
+M_max = 20
+
+res_dur_sp_opt1 = data.frame(M_dur_sp_opt1 = c(1:M_max),MSE_dur_sp_opt1 = c(1:M_max))
+for ( i in 1 : M_max){
+	reg_dur_sp_opt1 = glm(Surv1~bs(Poldur, df = i, degree = 1), data = db1, family = binomial)
+	#pred_dur_sp_opt1 = predict(reg_dur_sp_opt1, type ='response')
+	#plot(pred_dur_sp_opt1~Poldur,db1)
+	res_dur_sp_opt1 [i,2] = mean(reg_dur_sp_opt1$residuals^2)
+}
+plot(res_dur_sp_opt1[,1], res_dur_sp_opt1[,2])
+
+
+res_dur_sp_opt2 = data.frame(M_dur_sp_opt2 = c(1:M_max),MSE_dur_sp_opt2 = c(1:M_max))
+for ( i in 1 : M_max){
+	reg_dur_sp_opt2 = glm(Surv1~bs(Poldur, df = i, degree = 2), data = db1, family = binomial)
+	#pred_dur_sp_opt2 = predict(reg_dur_sp_opt2, type ='response')
+	#plot(pred_dur_sp_opt2~Poldur,db1)
+	res_dur_sp_opt2 [i,2] = mean(reg_dur_sp_opt2$residuals^2)
+}
+plot(res_dur_sp_opt2[,1], res_dur_sp_opt2[,2])
+
+
+res_dur_sp_opt3 = data.frame(M_dur_sp_opt3 = c(1:M_max),MSE_dur_sp_opt3 = c(1:M_max))
+for ( i in 1 : M_max){
+	reg_dur_sp_opt3 = glm(Surv1~bs(Poldur, df = i, degree = 3), data = db1, family = binomial)
+	#pred_dur_sp_opt3 = predict(reg_dur_sp_opt3, type ='response')
+	#plot(pred_dur_sp_opt3~Poldur,db1)
+	res_dur_sp_opt3 [i,2] = mean(reg_dur_sp_opt3$residuals^2)
+}
+plot(res_dur_sp_opt3[,1], res_dur_sp_opt3[,2])
+
+liste_min = c( min(res_dur_sp_opt1[,2]), min(res_dur_sp_opt2[,2]), min(res_dur_sp_opt3[,2]) )
+liste_min
+
 
 
 
