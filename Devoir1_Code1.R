@@ -573,18 +573,20 @@ HMeasure(Surv1,arb2_resp)$metrics[,1:5]
 library(ipred)
 bag1 = bagging(Surv1~
 Gender+Type+Category+Occupation+Age+Bonus+Poldur+Value+Density+as.factor(Group1)+Group2
-,data = db1,coob=TRUE, nbagg = 50)
+,data = db1,coob=TRUE, nbagg = 100)
 bag1
 bag1_resp = predict(bag1)
 
-predict_bagging = prediction(bag1_resp,Surv1)
-plot(performance(predict_bagging,"tpr","fpr"))
-abline(c(0,1))
+#predict_bagging = prediction(bag1_resp,Surv1)
+#plot(performance(predict_bagging,"tpr","fpr"))
+#abline(c(0,1))
 
 library(hmeasure)
 HMeasure(Surv1,bag1_resp)$metrics[,1:5]
 ## AUC : 0.676 pour nbagg = 25
 ##	   0.680 pour nbagg = 50
+##	   0.679 pour nbagg = 75
+##       0.677 pour nbagg = 100
 
 
 summary(bag1_resp)
@@ -1021,6 +1023,7 @@ for ( i in 1 : M_max){
 	#pred_dur_sp_opt1 = predict(reg_dur_sp_opt1, type ='response')
 	#plot(pred_dur_sp_opt1~Poldur,db1)
 	res_dur_sp_opt1 [i,2] = mean(reg_dur_sp_opt1$residuals^2)
+	res_dur_sp_opt1 [i,3] = BIC(reg_dur_sp_opt1)
 }
 plot(res_dur_sp_opt1[,1], res_dur_sp_opt1[,2])
 
@@ -1031,6 +1034,8 @@ for ( i in 1 : M_max){
 	#pred_dur_sp_opt2 = predict(reg_dur_sp_opt2, type ='response')
 	#plot(pred_dur_sp_opt2~Poldur,db1)
 	res_dur_sp_opt2 [i,2] = mean(reg_dur_sp_opt2$residuals^2)
+	res_dur_sp_opt2 [i,3] = BIC(reg_dur_sp_opt2)
+
 }
 plot(res_dur_sp_opt2[,1], res_dur_sp_opt2[,2])
 
@@ -1041,16 +1046,18 @@ for ( i in 1 : M_max){
 	#pred_dur_sp_opt3 = predict(reg_dur_sp_opt3, type ='response')
 	#plot(pred_dur_sp_opt3~Poldur,db1)
 	res_dur_sp_opt3 [i,2] = mean(reg_dur_sp_opt3$residuals^2)
+	res_dur_sp_opt3 [i,3] = BIC(reg_dur_sp_opt3)
+
 }
 plot(res_dur_sp_opt3[,1], res_dur_sp_opt3[,2])
 
 liste_min = c( min(res_dur_sp_opt1[,2]), min(res_dur_sp_opt2[,2]), min(res_dur_sp_opt3[,2]) )
 liste_min
 
+min_BIC = c(min(res_dur_sp_opt1[,3]), min(res_dur_sp_opt2[,3]), min(res_dur_sp_opt3[,3]) )
+min_BIC
 
 
-
-
-
+fit_dur = freelsgen(Poldur, Surv1,degree = 3, numknot = 3)
 
 
