@@ -518,6 +518,21 @@ summary(gam1)
 ##----------------------------------------------------------------------##
 ##########################################################################
 
+
+
+
+###########################
+## Séparation de la base ##
+###########################
+##
+#On sépare entre base test et apprentissage
+ind = sample(1:n_db1, floor(n_db1/1000))
+db1a = db1[ind,]
+db1t = db1[-ind,]
+###########################
+
+
+
 library(rpart)
 library(rpart.plot)
 
@@ -571,7 +586,7 @@ HMeasure(Surv1,arb2_resp)$metrics[,1:5]
 ##Améliorartion 1 -> Bagging##
 ##############################
 library(ipred)
-bag1 = bagging(Surv1~
+bag1 = bagging(as.factor(Surv1)~
 Gender+Type+Category+Occupation+Age+Bonus+Poldur+Value+Density+as.factor(Group1)+Group2
 ,data = db1,coob=TRUE, nbagg = 100)
 bag1
@@ -596,18 +611,35 @@ summary(bag1)
 fancyRpartPlot(bag1, sub="")
 prp(bag1,type=2,extra=1)
 
+#entre 10 et 100
+data_bagg = data.frame( n_b = seq(10,100,by=10),AUC_bag=seq(10))
+for (  i in 1:10){
+	nbagg_loop =  data_bagg[i,1]
+
+	bag_loop = bagging(Surv1~
+	Gender+Type+Category+Occupation+Age+Bonus+Poldur+Value+Density+as.factor(Group1)+Group2
+	,data = db1,coob=TRUE, nbagg = nbagg_loop)
+
+	bag_resp = predict(bag_loop)
+	data_bagg[i,2] = HMeasure(Surv1,bag_resp)$metrics[,3]
+
+	
+}
+
+data_bagg
+
+
 ####################################
 ##Amélioriation 2 -> Random Forest##
 ####################################
 library(randomForest)
 
-ind = sample(1:n_db1, floor(n_db1/50))
-db0 = db1[ind,]
 
-
-rf1 = randomForest(Surv1~
+rf1 = randomForest(as.factor(Surv1)~
 Gender+Type+Category+Occupation+Age+Bonus+Poldur+Value+Density+Group1+Group2
-,data  = db0, ntree = 500, mtry = 15)
+,data  = db1
+, ntree = 50)
+#, mtry = 15)
 rf1
 
 
@@ -621,15 +653,16 @@ Gender+Type+Occupation+Age+Bonus+Poldur+Density+as.factor(Group1)+Group2
 varImpPlot(rf1, main="")
 importance(rf1)
 
+library(ROCR)
 
-rf1_resp = predict(rf1)
-Surv0 = Surv1[ind]
-predict_rf = prediction(rf1_resp,Surv0)
+rf1_resp = as.numeric(predict(rf1, newdata = db1))-1
+#Surv1t = Surv1[-ind]
+predict_rf = prediction(rf1_resp,Surv1)
 plot(performance(predict_rf,"tpr","fpr"))
 abline(c(0,1))
 
 library(hmeasure)
-HMeasure(Surv0,rf1_resp)$metrics[,1:5]
+HMeasure(Surv1,rf1_resp)$metrics[,1:5]
 
 
 
@@ -768,7 +801,12 @@ ggplot(data_age,aes(x = Age, y=pred_factor,colour = "pred_factor"))+
 	ylab("Prédiction")+
 	scale_colour_manual("",breaks = c("pred_factor","pred_age"),values = c("black", "red"))
 
+# #             # #
+## ESSAI SPLINES ##
+# #             # #
 
+ess_age_sp = glm(Surv1~as.factor(Age), data = db1, family = binomial)
+(
 
 
 ############################################
@@ -814,23 +852,23 @@ mat_dens[,2] = pred_dens
 
 
 data_dens = as.data.frame(mat_dens)
-data_age[,3] = Density_dix
+data_dens[,3] = Density_dix
 ggplot(data_dens,aes(x = Density_dix, y=pred_dens_fac,colour = "A pred_dens_fac"))+
 	geom_line()+
-	geom_line(data = data_age , aes(x=Density_dix,y=pred_dens,color= "B pred_dens"))+
+	geom_line(data = data_dens, aes(x=Density_dix,y=pred_dens,color= "B pred_dens"))+
 	ylab("Prédiction")+
 	scale_colour_manual("",breaks = c("A pred_dens_fac","B pred_dens"),values = c("black", "red"))
 
 
-mat_age = matrix(1, nrow = n_db1, ncol = 2)
-mat_age[,1] = pred_dens_fac
-mat_age[,2] = pred_dens_sp
+mat_dens = matrix(1, nrow = n_db1, ncol = 2)
+mat_dens[,1] = pred_dens_fac
+mat_dens[,2] = pred_dens_sp
 
 data_dens = as.data.frame(mat_dens)
-data_age[,3] = Density_dix
+data_dens[,3] = Density_dix
 ggplot(data_dens,aes(x = Density_dix, y=pred_dens_fac,colour = "pred_dens_fac"))+
 	geom_line()+
-	geom_line(data = data_age , aes(x=Density_dix,y=pred_dens_sp,color= "pred_dens_sp"))+
+	geom_line(data = data_dens , aes(x=Density_dix,y=pred_dens_sp,color= "pred_dens_sp"))+
 	ylab("Prédiction")+
 	scale_colour_manual("",breaks = c("pred_dens_fac","pred_dens_sp"),values = c("black", "red"))
 
@@ -890,7 +928,7 @@ plot(pred_dur_fac~Poldur,db1)
 
 mat_dur = matrix(1, nrow = n_db1, ncol = 2)
 mat_dur[,1] = pred_dur_fac
-mat_dur[,2] = pred_dur
+mat_dur[,2] = pred_dur_sp
 
 matplot(Poldur,mat_dur)
 
@@ -1058,6 +1096,14 @@ min_BIC = c(min(res_dur_sp_opt1[,3]), min(res_dur_sp_opt2[,3]), min(res_dur_sp_o
 min_BIC
 
 
-fit_dur = freelsgen(Poldur, Surv1,degree = 3, numknot = 3)
+Poldura = Poldur[ind]
+Surv1a = Surv1[ind]
+
+fit_ess = fit.search.numknots(Poldura,Surv1a,degree = 1,minknot = 1 , maxknot = 5 )
+fit_ess
+fit_dur = freelsgen(Poldura, Surv1a,degree = 3, numknot = 1)
+summary(fit_dur)
+
+
 
 
