@@ -588,22 +588,29 @@ HMeasure(Surv1,arb2_resp)$metrics[,1:5]
 ##Améliorartion 1 -> Bagging##
 ##############################
 library(ipred)
-bag1 = bagging(Surv1~
+bag1 = bagging(as.factor(Surv1)~
 Gender+Type+Category+Occupation+Age+Bonus+Poldur+Value+Density+as.factor(Group1)+Group2
-,data = db1,coob=TRUE, nbagg = 10)
+,data = db1,coob=TRUE, nbagg = 75)
 bag1
-bag1_resp = predict(bag1)
+bag1_resp = predict(bag1, type = 'prob')
 
-#predict_bagging = prediction(bag1_resp,Surv1)
-#plot(performance(predict_bagging,"tpr","fpr"))
-#abline(c(0,1))
+predict_bagging = prediction(bag1_resp[,2],Surv1)
+plot(performance(predict_bagging,"tpr","fpr"))
+abline(c(0,1))
 
 library(hmeasure)
-HMeasure(Surv1,bag1_resp)$metrics[,1:5]
+HMeasure(Surv1,bag1_resp[,2])$metrics[,1:5]
 ## AUC : 0.676 pour nbagg = 25
 ##	   0.680 pour nbagg = 50
 ##	   0.679 pour nbagg = 75
 ##       0.677 pour nbagg = 100
+
+
+
+## !! Nveaux résultats avec as.factor et type = 'prob'
+## AUC : 0.626 pour nbagg = 10
+## 	   0.702 pour nbagg = 50
+##       0.716 pour nbagg = 75
 
 
 summary(bag1_resp)
@@ -657,7 +664,7 @@ importance(rf1)
 
 library(ROCR)
 
-rf1_resp = as.numeric(predict(rf1, newdata = db1))-1
+rf1_resp = as.numeric(predict(rf1, newdata = db1, type = 'prob'))
 #Surv1t = Surv1[-ind]
 predict_rf = prediction(rf1_resp,Surv1)
 plot(performance(predict_rf,"tpr","fpr"))
@@ -1105,7 +1112,3 @@ fit_ess = fit.search.numknots(Poldura,Surv1a,degree = 1,minknot = 1 , maxknot = 
 fit_ess
 fit_dur = freelsgen(Poldura, Surv1a,degree = 3, numknot = 1)
 summary(fit_dur)
-
-
-
-
