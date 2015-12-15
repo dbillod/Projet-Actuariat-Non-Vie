@@ -72,13 +72,15 @@ table(Gender)
 #On va recoder cette variable : 0 = homme, 1 = Femme
 
 a = rep(0,n_db1)
+ind_a  = which(Gender == "Female")
+a[ind_a] = 1
 
 
-for (i in 1:n_db1){
-	if (db1$Gender[i] == "Female"){
-		a[i] = 1
-	} 
-}
+#for (i in 1:n_db1){
+#	if (db1$Gender[i] == "Female"){
+#		a[i] = 1
+#	} 
+#}
 
 Gender = a
 db1$Gender = a
@@ -586,9 +588,9 @@ HMeasure(Surv1,arb2_resp)$metrics[,1:5]
 ##Améliorartion 1 -> Bagging##
 ##############################
 library(ipred)
-bag1 = bagging(as.factor(Surv1)~
+bag1 = bagging(Surv1~
 Gender+Type+Category+Occupation+Age+Bonus+Poldur+Value+Density+as.factor(Group1)+Group2
-,data = db1,coob=TRUE, nbagg = 100)
+,data = db1,coob=TRUE, nbagg = 10)
 bag1
 bag1_resp = predict(bag1)
 
@@ -639,7 +641,7 @@ rf1 = randomForest(as.factor(Surv1)~
 Gender+Type+Category+Occupation+Age+Bonus+Poldur+Value+Density+Group1+Group2
 ,data  = db1
 , ntree = 50)
-#, mtry = 15)
+, mtry = 15)
 rf1
 
 
@@ -679,14 +681,14 @@ v = 0.05
 residus_boosting = Surv1 - mean(Surv1)
 
 YP = c()
-for (k in 1:100){
+for (k in 1:1000){
 	fit_boosting = rpart(residus_boosting ~ Gender+Type+Category+Occupation+Age+Bonus+Poldur+Value+Density+as.factor(Group1)+Group2)
-	residus_boosting = Surv1 - v*predict(fit_boosting)
+	residus_boosting = residus_boosting - v*predict(fit_boosting)
 	YP = cbind(YP, v*predict(fit_boosting))
 }
 
 pred_boosting = apply(YP,1,sum)
-pred_boosting
+#pred_boosting
 max(pred_boosting)
 min(pred_boosting)
 
