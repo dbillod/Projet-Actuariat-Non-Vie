@@ -265,7 +265,8 @@ hist(Exppdays)
 # On va consdérer l'exposition comme fraction d'année  #
 #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!#
 Exppdays = Exppdays/365
-
+db1$Exppdays = Exppdays
+attach(db1)
 
 ###########################################
 ##############   17    ####################
@@ -418,7 +419,7 @@ data = db1, family = binomial(link="logit")))
 library(Rcmdr)
 
 step2 = stepwise(glm(Surv1~
-Gender+Type+Category+Occupation+Age+Bonus+Poldur+Value+Density+as.factor(Group1)+Group2
+Gender+Type+Category+Occupation+Age+Bonus+Poldur+Value+Density+(Group1)+Group2
 +offset(log(Exppdays)), 
 data = db1a, family = binomial(link="logit")))
 
@@ -448,7 +449,7 @@ Group2_2a = Group2_2[-ind]
 
 
 step3 = stepwise(glm(Surv1~
-Gender+Type+Category+Occupation+Age+Bonus+Poldur+Value+Density+as.factor(Group1_2)+Group2_2
+Gender+Type+Category+Occupation+Age+Bonus+Poldur+Value+Density+(Group1_2)+Group2_2
 +offset(log(Exppdays)), 
 data = db1a, family = binomial(link="logit")))
 
@@ -646,12 +647,12 @@ data = db1a, family = binomial(link="logit"))
 
 summary(test_sp13)
 
-test_sp14= glm(Surv1~
+test_sp141= glm(Surv1~
 Gender+Type+Occupation+Density+Group1+Group2_2a+bs(Age, degree = 1, knots = c(35,65))+bs(Bonus, degree = 2, knots = c(-20,0,65))+bs(Poldur, degree = 1, knots = c(1))
 +offset(log(Exppdays)), 
 data = db1a, family = binomial(link="logit"))
 
-summary(test_sp14)
+summary(test_sp141)
 
 test_sp15= glm(Surv1~
 Gender+Type+Occupation+Density+Group1+Group2_2a+bs(Age, degree = 1, knots = c(35,65))+bs(Bonus, degree = 2, knots = c(-20,0,65))+bs(Poldur, degree = 1, knots = c(1,9))
@@ -887,7 +888,7 @@ s13 = predict(test_sp13,type='response', newdata = db1t)
 HMeasure(Surv1t,s13)$metrics[,1:5]
 AUC_test_sp[13] = HMeasure(Surv1t,s13)$metrics[,3]
 
-s14 = predict(test_sp14,type='response', newdata = db1t)
+s14 = predict(test_sp141,type='response', newdata = db1t)
 
 predict14 = prediction(s14,Surv1t)	
 plot(performance(predict14,"tpr","fpr"))
@@ -1089,7 +1090,7 @@ arbre1_resp = predict(arbre1)
 ##Optimisation à faire sur cp
 arb2 = rpart((Surv1)~
 Gender+Type+Category+Occupation+Age+Bonus+Poldur+Value+Density+(Group1)+Group2
-, data = db1a, cp = 3.5e-3)
+, data = db1a, cp = 3.2e-3)
 #prp(arb2,type=2,extra=1)
 library(rattle)
 fancyRpartPlot(arb2, sub="")
@@ -1129,12 +1130,17 @@ HMeasure(Surv1t,arb2_resp)$metrics[,1:5]
 library(ipred)
 bag3 = bagging(as.factor(Surv1)~
 Gender+Type+Category+Occupation+Age+Bonus+Poldur+Value+Density+(Group1)+Group2
-,data = db1a,coob = TRUE, nbagg = 75)
+,data = db1a,coob = TRUE, nbagg = 100)
 bag3
 bag3_resp = predict(bag3, type = 'prob', newdata = db1t)
 
-predict_bagging = prediction(bag1_resp[,2],Surv1t)
+predict_bagging = prediction(bag3_resp[,2],Surv1t)
 plot(performance(predict_bagging,"tpr","fpr"))
+abline(c(0,1))
+
+plot( performance(predict_bagging,"tpr","fpr"), col = "blue")
+plot(performance(predict14,"tpr","fpr"), add = TRUE, col = "red" )
+legend(0.8,0.2,c("Logit","Bagging"))
 abline(c(0,1))
 
 library(hmeasure)
@@ -1150,6 +1156,14 @@ HMeasure(Surv1t,bag3_resp[,2])$metrics[,1:5]
 ## AUC : 0.626 pour nbagg = 10
 ## 	   0.702 pour nbagg = 50
 ##       0.716 pour nbagg = 75
+
+data_bag_resp = as.data.frame(bag3_resp[,2])
+
+ggplot(data_bag_resp, aes(x=bag3_resp[,2])) +
+	geom_histogram(binwidth=.01, colour="black", fill="sky blue") +
+	ggtitle("Histogramme des prévisions")+
+	xlab("Prévisions")+
+	ylab("Effectif")
 
 
 summary(bag1_resp)
@@ -1295,15 +1309,15 @@ pred_car = predict(reg_car, type = 'response')
 plot(pred_car~Age,db1)
 
 
-reg_age1 = glm(Surv1~(Age), data = db1, family = binomial)
-pred_age1 = predict(reg_age1, type = 'response')
+reg_age1 = glm(Surv1~(Age), data = db1a, family = binomial)
+pred_age1 = predict(reg_age1, type = 'response', newdata = db1a)
 plot(pred_age1~Age,db1)
 qplot(pred_age1,Age, geom = c("point", "smooth"))+ geom_line(size=1, color = 'blue')
 
 
 library(splines)
-reg_age = glm(Surv1~bs(Age, degree = 1, knots = c(35,65)), data = db1, family = binomial)
-pred_age = predict(reg_age, type = 'response')
+reg_age = glm(Surv1~bs(Age, degree = 1, knots = c(35,65)), data = db1a, family = binomial)
+pred_age = predict(reg_age, type = 'response', newdata = db1a)
 plot(pred_age~Age,db1)
 
 smoothingSpline = smooth.spline(Age, Surv1, spar=0.35)
@@ -1318,23 +1332,30 @@ pred_cut = predict(reg_cut,type = 'response')
 plot(pred_cut~Age,db1)
 
 
-reg_factor = glm(Surv1~as.factor(Age), data = db1, family = binomial)
-pred_factor = predict(reg_factor,type = 'response')
+reg_factor = glm(Surv1~as.factor(Age), data = db1a, family = binomial)
+pred_factor = predict(reg_factor,type = 'response', newdata = db1a)
 plot(pred_factor~Age,db1)
 
-mat_age = matrix(1, nrow = n_db1, ncol = 2)
+mat_age = matrix(1, nrow = length(ind), ncol = 2)
 mat_age[,1] = pred_factor
 mat_age[,2] = pred_age1
 #matplot(Age,mat_age)
 
 
 data_age = as.data.frame(mat_age)
-data_age[,3] = Age
-ggplot(data_age,aes(x = Age, y=pred_factor,colour = "pred_factor"))+
+data_age[,3] = Age[ind]
+data_age[,4] = pred_age
+ggplot(data_age,aes(x = Age[ind], y=pred_factor,colour = "Catégorielle"))+
 	geom_line()+
-	geom_line(data = data_age , aes(x=Age,y=pred_age,color= "pred_age1"))+
+	geom_line(data = data_age , aes(x=Age[ind],y=pred_age1,color= "Linéaire"))+
 	ylab("Prédiction")+
-	scale_colour_manual("",breaks = c("pred_factor","pred_age1"),values = c("black", "red"))
+	scale_colour_manual("",breaks = c("Catégorielle","Linéaire", "Spline"),values = c("black", "red", "blue"))+
+	ggtitle("Age")+
+	xlab("Age")+
+	geom_vline(data = data_age, aes(xintercept = 35), colour = "purple")+
+	geom_vline(data = data_age, aes(xintercept = 65), colour = "purple")+
+	geom_line(data = data_age, aes(x = Age[ind], y = pred_age, colour = "Spline" ))
+
 
 
 mat_age = matrix(1, nrow = n_db1, ncol = 2)
@@ -1375,24 +1396,26 @@ Density_dix<-ceiling(Density_arrond/10) * 10
 #hist(Density_dix)
 
 
-reg_dens = glm(Surv1~(Density_dix), data = db1, family = binomial)
-pred_dens = predict(reg_dens, type ='response')
+Density_dixa = Density_dix[ind]
+
+reg_dens = glm(Surv1~(Density_dixa), data = db1a, family = binomial)
+pred_dens = predict(reg_dens, type ='response', newdata = db1a)
 plot(pred_dens~Density,db1)
 
 reg_dens_sp = glm(Surv1~bs(Density_dix), data = db1, family = binomial)
 pred_dens_sp = predict(reg_dens_sp, type ='response')
 plot(pred_dens_sp~Density,db1)
 
-reg_dens_fac = glm(Surv1~as.factor(Density), data = db1, family = binomial)
-pred_dens_fac = predict(reg_dens_fac, type ='response')
+reg_dens_fac = glm(Surv1~as.factor(Density), data = db1a, family = binomial)
+pred_dens_fac = predict(reg_dens_fac, type ='response', newdata = db1a)
 plot(pred_dens_fac~Density,db1)
 
-reg_dens_fac = glm(Surv1~as.factor(Density_dix), data = db1, family = binomial)
-pred_dens_fac = predict(reg_dens_fac, type ='response')
+reg_dens_fac = glm(Surv1~as.factor(Density_dixa), data = db1a, family = binomial)
+pred_dens_fac = predict(reg_dens_fac, type ='response', newdata = db1a)
 plot(pred_dens_fac~Density,db1)
 
 
-mat_dens = matrix(1, nrow = n_db1, ncol = 2)
+mat_dens = matrix(1, nrow = length(ind), ncol = 2)
 mat_dens[,1] = pred_dens_fac
 mat_dens[,2] = pred_dens
 
@@ -1400,7 +1423,9 @@ mat_dens[,2] = pred_dens
 
 
 data_dens = as.data.frame(mat_dens)
-data_dens[,3] = Density_dix
+data_dens[,3] = Density_dixa
+
+
 ggplot(data_dens,aes(x = Density_dix, y=pred_dens_fac,colour = "A pred_dens_fac"))+
 	geom_line()+
 	geom_line(data = data_dens, aes(x=Density_dix,y=pred_dens,color= "B pred_dens"))+
@@ -1413,12 +1438,15 @@ mat_dens[,1] = pred_dens_fac
 mat_dens[,2] = pred_dens_sp
 
 data_dens = as.data.frame(mat_dens)
-data_dens[,3] = Density_dix
-ggplot(data_dens,aes(x = Density_dix, y=pred_dens_fac,colour = "pred_dens_fac"))+
+data_dens[,3] = Density_dixa
+ggplot(data_dens,aes(x = Density_dixa, y=pred_dens_fac,colour = "Catégorielle"))+
 	geom_line()+
-	geom_line(data = data_dens , aes(x=Density_dix,y=pred_dens_sp,color= "pred_dens_sp"))+
+	geom_line(data = data_dens , aes(x=Density_dixa,y=pred_dens,color= "Linéaire"))+
 	ylab("Prédiction")+
-	scale_colour_manual("",breaks = c("pred_dens_fac","pred_dens_sp"),values = c("black", "red"))
+	scale_colour_manual("",breaks = c("Catégorielle","Linéaire"),values = c("black", "red"))+
+	xlab("Densité")+
+	ggtitle("Densité")
+
 
 
 
@@ -1437,32 +1465,39 @@ BIC(ess_dens_sp)
 
 #Test bonus
 
-reg_bonus  = glm(Surv1~(Bonus), data = db1, family = binomial)
-pred_bonus = predict(reg_bonus, type ='response')
+reg_bonus  = glm(Surv1~(Bonus), data = db1a, family = binomial)
+pred_bonus = predict(reg_bonus, type ='response', newdata = db1a)
 plot(pred_bonus~Bonus,db1)
 
-reg_bonus_sp = glm(Surv1~bs(Bonus), data = db1, family = binomial)
-pred_bonus_sp = predict(reg_bonus_sp, type ='response')
+reg_bonus_sp = glm(Surv1~bs(Bonus, degree = 2, knots = c(-20,0,60)), data = db1a, family = binomial)
+pred_bonus_sp = predict(reg_bonus_sp, type ='response', newdata = db1a)
 plot(pred_bonus_sp~Bonus,db1)
 
-reg_bonus_fac = glm(Surv1~as.factor(Bonus), data = db1, family = binomial)
-pred_bonus_fac = predict(reg_bonus_fac, type ='response')
+reg_bonus_fac = glm(Surv1~as.factor(Bonus), data = db1a, family = binomial)
+pred_bonus_fac = predict(reg_bonus_fac, type ='response', newdata = db1a)
 plot(pred_bonus_fac~Bonus,db1)
 
 
-mat_bonus = matrix(1, nrow = n_db1, ncol = 2)
+mat_bonus = matrix(1, nrow = length(ind), ncol = 2)
 mat_bonus[,1] = pred_bonus_fac
 mat_bonus[,2] = pred_bonus
 
 matplot(Bonus,mat_bonus)
 
 data_bonus = as.data.frame(mat_bonus)
-data_dens[,3] = Bonus
-ggplot(data_bonus,aes(x = Bonus, y=pred_bonus_fac,colour = "pred_bonus_fac"))+
+data_bonus[,3] = Bonus[ind]
+data_bonus[,4] = pred_bonus_sp
+ggplot(data_bonus,aes(x = Bonus[ind], y=pred_bonus_fac,colour = "Catégorielle"))+
 	geom_line()+
-	geom_line(data = data_bonus , aes(x=Bonus,y=pred_bonus,color= "pred_bonus"))+
+	geom_line(data = data_bonus , aes(x=Bonus[ind],y=pred_bonus,color= "Linéaire"))+
 	ylab("Prédiction")+
-	scale_colour_manual("",breaks = c("pred_bonus_fac","pred_bonus"),values = c("black", "red"))
+	scale_colour_manual("",breaks = c("Catégorielle","Linéaire", "Spline"),values = c("black", "red", "blue"))+
+	xlab("Bonus")+
+	geom_vline(data = data_bonus, aes(xintercept = -20), colour = "purple")+
+	geom_vline(data = data_bonus, aes(xintercept = 0), colour = "purple")+
+	geom_vline(data = data_bonus, aes(xintercept = 60), colour = "purple")+
+	ggtitle("Bonus")+
+	geom_line(data = data_bonus, aes(x = Bonus[ind], y = pred_bonus_sp, colour = "Spline"))
 
 
 
@@ -1479,31 +1514,36 @@ BIC(ess_bonus_sp)
 
 #Test Ancienneté
 
-reg_dur = glm(Surv1~(Poldur), data = db1, family = binomial)
-pred_dur = predict(reg_dur, type ='response')
+reg_dur = glm(Surv1~(Poldur), data = db1a, family = binomial)
+pred_dur = predict(reg_dur, type ='response', newdata = db1a)
 plot(pred_dur~Poldur,db1)
 
-reg_dur_sp = glm(Surv1~bs(Poldur), data = db1, family = binomial)
-pred_dur_sp = predict(reg_dur_sp, type ='response')
+reg_dur_sp = glm(Surv1~bs(Poldur, degree = 1, knots = c(1)), data = db1, family = binomial)
+pred_dur_sp = predict(reg_dur_sp, type ='response', newdata = db1a)
 plot(pred_dur_sp~Poldur,db1)
 
-reg_dur_fac = glm(Surv1~as.factor(Poldur), data = db1, family = binomial)
-pred_dur_fac = predict(reg_dur_fac, type ='response')
+reg_dur_fac = glm(Surv1~as.factor(Poldur), data = db1a, family = binomial)
+pred_dur_fac = predict(reg_dur_fac, type ='response', newdata = db1a)
 plot(pred_dur_fac~Poldur,db1)
 
-mat_dur = matrix(1, nrow = n_db1, ncol = 2)
+mat_dur = matrix(1, nrow = length(ind), ncol = 2)
 mat_dur[,1] = pred_dur_fac
 mat_dur[,2] = pred_dur
 
 matplot(Poldur,mat_dur)
 
 data_dur = as.data.frame(mat_dur)
-data_dur[,3] = Poldur
-ggplot(data_dur,aes(x = Poldur, y=pred_dur_fac,colour = "pred_dur_fac"))+
+data_dur[,3] = Poldur[ind]
+data_dur[,4] = pred_dur_sp
+ggplot(data_dur,aes(x = Poldur[ind], y=pred_dur_fac,colour = "Catégorielle"))+
 	geom_line()+
-	geom_line(data = data_dur , aes(x=Poldur,y=pred_dur,color= "pred_dur"))+
+	geom_line(data = data_dur , aes(x=Poldur[ind],y=pred_dur,color= "Linéaire"))+
 	ylab("Prédiction")+
-	scale_colour_manual("",breaks = c("pred_dur_fac","pred_dur"),values = c("black", "red"))
+	scale_colour_manual("",breaks = c("Catégorielle","Linéaire", "Spline"),values = c("black", "red", "blue"))+
+	xlab("Ancienneté")+
+	geom_vline(data = data_dur, aes(xintercept = 1), colour = "purple")+
+	ggtitle("Ancienneté")+
+	geom_line(data = data_dur, aes(x = Poldur[ind], y = pred_dur_sp, colour = "Spline"))
 
 
 
@@ -1683,3 +1723,87 @@ fit_ess = fit.search.numknots(Poldura,Surv1a,degree = 1,minknot = 1 , maxknot = 
 fit_ess
 fit_dur = freelsgen(Poldura, Surv1a,degree = 3, numknot = 1)
 summary(fit_dur)
+
+
+
+###########################################
+## Incorporation des prédictions ##########
+###########################################
+
+
+##Traitement de pricing
+
+n_pricing = dim(pricing)[1]
+#Gender
+a_pricing = rep(0,n_pricing)
+ind_a_pricing = which(pricing$Gender == 'Female')
+a_pricing[ind_a_pricing] = 1
+
+pricing$Gender = a_pricing
+
+pricing$Group2_2a = pricing$Group2
+ind_Group2_2a_pricing = which(pricing$Group2 == "L" | pricing$Group2 == "S" | pricing$Group2 == "T" | pricing$Group2 == "U" )
+pricing$Group2_2a[ind_Group2_2a_pricing] = "L"
+
+ind_exp = sample(1:n_db1, n_pricing)
+#ind = sample(1:n_db1, floor(n_db1*0.65))
+
+
+pricing$Exppdays = rep(1,n_pricing)
+
+pricing$Density = as.numeric(pricing$Density)
+
+mod_1 = test_sp141
+mod_2 = bag3
+
+new1 = db1t
+
+
+new2 = db1a[1:n_pricing,]
+new2$Group2_2a = Group2_2a[1:n_pricing]
+
+
+names(new2)
+
+new2$PolNum = pricing$PolNum
+new2$CalYear = pricing$CalYear
+new2$Gender = pricing$Gender
+new2$Type = pricing$Type
+new2$Category = pricing$Category
+new2$Occupation = pricing$Occupation
+new2$Age = pricing$Age
+new2$Group1 = pricing$Group1
+new2$Bonus = pricing$Bonus
+new2$Poldur = pricing$Poldur
+new2$Value = pricing$Value
+new2$Adind = pricing$Adind
+new2$SubGroup2 = pricing$SubGroup2
+new2$Group2 = pricing$Group2
+new2$Density = pricing$Density
+new2$Exppdays = pricing$Exppdays
+new2$Group2_2a = pricing$Group2_2a
+
+
+
+
+s_fin1 = predict(test_sp141,type = 'response', newdata = new2)
+summary(s_fin1)
+
+
+s_fin2 = predict(mod_2,type='prob', newdata = pricing)
+summary(s_fin2[,2])
+
+
+score_pricing =rep(0, n_pricing)
+
+
+##traitement final
+
+pricing_Toullet_Billod = data.frame(pricing$PolNum, Proba1 = rep(0,n_pricing), Proba2= rep(0,n_pricing))
+
+pricing_Toullet_Billod[,2] = s_fin1
+pricing_Toullet_Billod[,3] = s_fin2[,2]
+
+
+getwd()
+write.csv2(pricing_Toullet_Billod, file='Projet1_Toullet_Billod_pricing.csv')
