@@ -12,12 +12,12 @@ base_ensae_1 = base_ensae_1[,-1]
 #regarder le wd : getwd()
 #écrire : write.csv2(pricing, file='blabla.csv')
 
-pricing <- read.csv2("http://freakonometrics.free.fr/pricing.csv")
+pricing3 <- read.csv2("http://freakonometrics.free.fr/pricing.csv")
 dim(pricing)
 ##La base a 36311 lignes et 15 colonnes
 
-pricing = read.csv2("C:/Users/David/Documents/ENSAE/3A/Actuariat Non-Vie/pricing.csv")
-pricing = pricing[,-1]
+pricing2 = read.csv2("C:/Users/David/Documents/ENSAE/3A/Actuariat Non-Vie/pricing.csv")
+pricing2 = pricing[,-1]
 
 ## La base s'appelle base_ensae_1
 
@@ -1751,7 +1751,7 @@ ind_exp = sample(1:n_db1, n_pricing)
 
 pricing$Exppdays = rep(1,n_pricing)
 
-pricing$Density = as.numeric(pricing$Density)
+pricing$Density = as.numeric(as.character(pricing3$Density))
 
 mod_1 = test_sp141
 mod_2 = bag3
@@ -1792,9 +1792,6 @@ summary(s_fin1)
 
 s_fin2 = predict(mod_2,type='prob', newdata = pricing)
 summary(s_fin2[,2])
-
-
-score_pricing =rep(0, n_pricing)
 
 
 ##traitement final
