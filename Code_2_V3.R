@@ -156,23 +156,28 @@ db1$Group2_4 = Group2_4
 
 Age_Tr=rep(1,n_db1)
 Age_Tr[which(Age>=30)]=2
-Age_Tr[which(Age>=48)]=3
+Age_Tr[which(Age>=50)]=3
 Age_Tr=as.factor(Age_Tr)
 
 Density_Tr=rep(3,n_db1)
-Density_Tr[which(Density<163)]=2
+Density_Tr[which(Density<152)]=2
 Density_Tr[which(Density<84)]=1
 Density_Tr=as.factor(Density_Tr)	
 	
 Bonus_Tr=rep(1,n_db1)
-Bonus_Tr[which(Bonus>=15)]=2
+Bonus_Tr[which(Bonus>=-15)]=2
 Bonus_Tr=as.factor(Bonus_Tr)
 
+
+Poldur_Tr = rep(1,n_db1)
+Poldur_Tr[which(Poldur>0.5)]=2
+Poldur_Tr[which(Poldur>7.5)]=3
+Poldur_Tr = as.factor(Poldur_Tr)
 	
 db1$Age_Tr = Age_Tr
 db1$Density_Tr = Density_Tr
-db1$Bonus_Tr=Bonus_Tr	
-
+db1$Bonus_Tr = Bonus_Tr	
+db1$Poldur_Tr = Poldur_Tr
 	
 	
 attach(db1)
@@ -279,8 +284,10 @@ arb_age = rpart(Nb1~
 	pred_age = predict(reg_age, type = 'response', newdata = db1a)
 	
 	
-	reg_age_sp = glm(Nb1~bs(Age, degree = 1, knots = c(35,65)), data = db1a, family = poisson)
+	reg_age_sp = glm(Nb1~bs(Age, degree = 1, knots = c(35)), data = db1a, family = poisson)
 	pred_age_sp = predict(reg_age_sp, type = 'response', newdata = db1a)
+	
+	BIC(reg_age_sp)
 	
 	##Graphe Catégorielle/Linéaire
 	
@@ -296,9 +303,11 @@ arb_age = rpart(Nb1~
 		geom_line()+
 		geom_line(data = data_age1 , aes(x=Age[ind],y=pred_age,color= "Linéaire"))+
 		ylab("Prédiction")+
-		scale_colour_manual("",breaks = c("Catégorielle","Linéaire"),values = c("black", "red"))+
+		scale_colour_manual("",breaks = c("Catégorielle","Linéaire", "Spline"),values = c("black", "red", "blue"))+
 		ggtitle("Age")+
-		xlab("Age")
+		xlab("Age")+
+		geom_line(data = data_age1 , aes(x=Age[ind],y=pred_age_sp,color= "Spline"))
+		
 	
 	#-> Noeuds : vers 32
 
@@ -332,7 +341,7 @@ cpopt
 	reg_dens_sp = glm(Nb1~bs(Density, degree = 1, knots = c(35,65)), data = db1a, family = poisson)
 	pred_dens_sp = predict(reg_dens_sp, type = 'response', newdata = db1a)
 	
-	
+	BIC(reg_dens_sp)
 	
 	##Graphe Catégorielle/Linéaire
 	
@@ -360,7 +369,7 @@ cpopt
 arb_p = rpart(Nb1~
 	Poldur,
 	data = db1a, method = "poisson",
-	cp = 1e-3)
+	cp = 0.65e-3)
 	fancyRpartPlot(arb_p)
 
 arb_p$cptable
@@ -380,9 +389,10 @@ cpopt
 	pred_dur = predict(reg_dur, type = 'response', newdata = db1a)
 	
 	
-	reg_dur_sp = glm(Nb1~bs(Poldur, degree = 1, knots = c(35,65)), data = db1a, family = poisson)
+	reg_dur_sp = glm(Nb1~bs(Poldur, degree = 3, knots = c(1,10)), data = db1a, family = poisson)
 	pred_dur_sp = predict(reg_dur_sp, type = 'response', newdata = db1a)
 	
+	BIC(reg_dur_sp)
 	
 	##Graphe Catégorielle/Linéaire
 	
@@ -432,10 +442,10 @@ cpopt
 	pred_bonus = predict(reg_bonus, type = 'response', newdata = db1a)
 	
 	
-	reg_bonus_sp = glm(Nb1~bs(Bonus, degree = 1, knots = c(35,65)), data = db1a, family = poisson)
+	reg_bonus_sp = glm(Nb1~bs(Bonus, degree = 3, knots = c(-15,55)), data = db1a, family = poisson)
 	pred_bonus_sp = predict(reg_bonus_sp, type = 'response', newdata = db1a)
 	
-	
+	BIC(reg_bonus_sp)
 	
 	##Graphe Catégorielle/Linéaire
 	
@@ -446,23 +456,380 @@ cpopt
 	data_bonus1 = as.data.frame(mat_bonus1)
 	data_bonus1[,3] = Bonus[ind]
 	
+
+	reg_bonus_sp1 = glm(Nb1~bs(Bonus, degree = 1, knots = c(0)), data = db1a, family = poisson)
+	pred_bonus_sp1 = predict(reg_bonus_sp, type = 'response', newdata = db1a)
+	
 	
 	ggplot(data_bonus1,aes(x = Bonus[ind], y=pred_bonus_fac,colour = "Catégorielle"))+
 		geom_line()+
 		geom_line(data = data_bonus1 , aes(x=Bonus[ind],y=pred_bonus,color= "Linéaire"))+
 		ylab("Prédiction")+
-		scale_colour_manual("",breaks = c("Catégorielle","Linéaire"),values = c("black", "red"))+
+		scale_colour_manual("",breaks = c("Catégorielle","Linéaire", "Spline"),values = c("black", "red", "blue"))+
 		ggtitle("Bonus")+
-		xlab("Bonus")
+		xlab("Bonus")+
+		geom_line(data = data_bonus1 , aes(x=Bonus[ind],y=pred_bonus_sp,color= "Spline"))
+
+
+		#geom_vline(data = data_bonus1, aes(xintercept = 1), colour = "purple")
 	
 	
 	## Noeuds : 0 et vers 125
 	
 
+	
+test_sp1= glm(Nb1~
+Gender+Type+Occupation+Density+Group1+Group2_4+Adind+bs(Age, degree = 3, knots = c(30,50))+Bonus+Poldur
++offset(log(Exppdays)), 
+data = db1a, family = poisson)
+
+summary(test_sp1)
+
+test_sp2= glm(Nb1~
+Gender+Type+Occupation+Density+Group1+Group2_4+Adind+bs(Age, degree = 3, knots = c(30,50))+Poldur
++bs(Bonus, degree = 3, knots = c(-15,55))
++offset(log(Exppdays)), 
+data = db1a, family = poisson)
+
+summary(test_sp2)
+
+test_sp3= glm(Nb1~
+Gender+Type+Occupation+Density+Group1+Group2_4+Adind+bs(Age, degree = 3, knots = c(30,50))+Poldur+bs(Bonus, degree = 1, knots = c(0))
++offset(log(Exppdays)), 
+data = db1a, family = poisson)
+
+summary(test_sp3)
+
+
+#Age : D3;30,50#
+#Poldur : D1;0.5,7.5#
+test_sp4= glm(Nb1~
+Gender+Type+Occupation+Density+Group1+Group2_4+Adind+bs(Age, degree = 3, knots = c(30,50))+bs(Poldur, degree = 1, knots = c(0.5,7.5))+Bonus
++offset(log(Exppdays)), 
+data = db1a, family = poisson)
+
+summary(test_sp4)
+
+test_sp5= glm(Nb1~
+Gender+Type+Occupation+Density+Group1+Group2_4+Adind+bs(Age, degree = 3, knots = c(30,50))+bs(Bonus, degree = 3, knots = c(-15,55))+bs(Poldur, degree = 1, knots = c(0.5,7.5))
++offset(log(Exppdays)), 
+data = db1a, family = poisson)
+
+summary(test_sp5)
+
+test_sp6= glm(Nb1~
+Gender+Type+Occupation+Density+Group1+Group2_4+Adind+bs(Age, degree = 3, knots = c(30,50))+bs(Bonus, degree = 1, knots = c(0))+bs(Poldur, degree = 1, knots = c(0.5,7.5))
++offset(log(Exppdays)), 
+data = db1a, family = poisson)
+
+summary(test_sp6)
+
+
+#Age : D3;30,50#
+#Poldur : D1;1#
+
+test_sp7= glm(Nb1~
+Gender+Type+Occupation+Density+Group1+Group2_4+Adind+bs(Age, degree = 3, knots = c(30,50))+bs(Poldur, degree = 1, knots = c(1))+Bonus
++offset(log(Exppdays)), 
+data = db1a, family = poisson)
+
+summary(test_sp7)
+
+
+test_sp8= glm(Nb1~
+Gender+Type+Occupation+Density+Group1+Group2_4+Adind+bs(Age, degree = 3, knots = c(30,50))+bs(Bonus, degree = 3, knots = c(-15,55))+bs(Poldur, degree = 1, knots = c(1))
++offset(log(Exppdays)), 
+data = db1a, family = poisson)
+
+summary(test_sp8)
+
+test_sp9= glm(Nb1~
+Gender+Type+Occupation+Density+Group1+Group2_4+Adind+bs(Age, degree = 3, knots = c(30,50))+bs(Bonus, degree = 1, knots = c(0))+bs(Poldur, degree = 1, knots = c(1))
++offset(log(Exppdays)), 
+data = db1a, family = poisson)
+
+summary(test_sp9)
+
+
+#AGE : D1; 35# 
+#Bonus : RIEN#
+
+test_sp10= glm(Nb1~
+Gender+Type+Occupation+Density+Group1+Group2_4+Adind+bs(Age, degree = 1, knots = c(35))+Bonus+Poldur
++offset(log(Exppdays)), 
+data = db1a, family = poisson)
+
+summary(test_sp10)
+
+test_sp11= glm(Nb1~
+Gender+Type+Occupation+Density+Group1+Group2_4+Adind+bs(Age, degree = 1, knots = c(35))+Poldur
++bs(Bonus, degree = 3, knots = c(-15,55))
++offset(log(Exppdays)), 
+data = db1a, family = poisson)
+
+summary(test_sp11)
+
+test_sp12= glm(Nb1~
+Gender+Type+Occupation+Density+Group1+Group2_4+Adind+bs(Age, degree = 1, knots = c(35))+Poldur+bs(Bonus, degree = 1, knots = c(0))
++offset(log(Exppdays)), 
+data = db1a, family = poisson)
+
+summary(test_sp12)
+
+
+#Age : D3;30,50#
+#Poldur : D1;0.5,7.5#
+test_sp13= glm(Nb1~
+Gender+Type+Occupation+Density+Group1+Group2_4+Adind+bs(Age, degree = 1, knots = c(35))+bs(Poldur, degree = 1, knots = c(0.5,7.5))+Bonus
++offset(log(Exppdays)), 
+data = db1a, family = poisson)
+
+summary(test_sp13)
+
+test_sp14= glm(Nb1~
+Gender+Type+Occupation+Density+Group1+Group2_4+Adind+bs(Age, degree = 1, knots = c(35))+bs(Bonus, degree = 3, knots = c(-15,55))+bs(Poldur, degree = 1, knots = c(0.5,7.5))
++offset(log(Exppdays)), 
+data = db1a, family = poisson)
+
+summary(test_sp14)
+
+test_sp15= glm(Nb1~
+Gender+Type+Occupation+Density+Group1+Group2_4+Adind+bs(Age, degree = 1, knots = c(35))+bs(Bonus, degree = 1, knots = c(0))+bs(Poldur, degree = 1, knots = c(0.5,7.5))
++offset(log(Exppdays)), 
+data = db1a, family = poisson)
+
+summary(test_sp15)
+
+
+#Age : D3;30,50#
+#Poldur : D1;1#
+
+test_sp16= glm(Nb1~
+Gender+Type+Occupation+Density+Group1+Group2_4+Adind+bs(Age, degree = 1, knots = c(35))+bs(Poldur, degree = 1, knots = c(1))+Bonus
++offset(log(Exppdays)), 
+data = db1a, family = poisson)
+
+summary(test_sp16)
+
+
+test_sp17= glm(Nb1~
+Gender+Type+Occupation+Density+Group1+Group2_4+Adind+bs(Age, degree = 1, knots = c(35))+bs(Bonus, degree = 3, knots = c(-15,55))+bs(Poldur, degree = 1, knots = c(1))
++offset(log(Exppdays)), 
+data = db1a, family = poisson)
+
+summary(test_sp17)
+
+test_sp18= glm(Nb1~
+Gender+Type+Occupation+Density+Group1+Group2_4+Adind+bs(Age, degree = 1, knots = c(35))+bs(Bonus, degree = 1, knots = c(0))+bs(Poldur, degree = 1, knots = c(1))
++offset(log(Exppdays)), 
+data = db1a, family = poisson)
+
+summary(test_sp18)
+
+
+#AGE : RIEN# 
+#Bonus : RIEN#
+
+test_sp19= glm(Nb1~
+Gender+Type+Occupation+Density+Group1+Group2_4+Adind+Age+Bonus+Poldur
++offset(log(Exppdays)), 
+data = db1a, family = poisson)
+
+summary(test_sp19)
+
+test_sp20= glm(Nb1~
+Gender+Type+Occupation+Density+Group1+Group2_4+Adind+Age+Poldur
++bs(Bonus, degree = 3, knots = c(-15,55))
++offset(log(Exppdays)), 
+data = db1a, family = poisson)
+
+summary(test_sp20)
+
+test_sp21= glm(Nb1~
+Gender+Type+Occupation+Density+Group1+Group2_4+Adind+Age+Poldur+bs(Bonus, degree = 1, knots = c(0))
++offset(log(Exppdays)), 
+data = db1a, family = poisson)
+
+summary(test_sp21)
+
+
+#Age : D3;30,50#
+#Poldur : D1;0.5,7.5#
+test_sp22= glm(Nb1~
+Gender+Type+Occupation+Density+Group1+Group2_4+Adind+Age+bs(Poldur, degree = 1, knots = c(0.5,7.5))+Bonus
++offset(log(Exppdays)), 
+data = db1a, family = poisson)
+
+summary(test_sp22)
+
+test_sp23= glm(Nb1~
+Gender+Type+Occupation+Density+Group1+Group2_4+Adind+Age+bs(Bonus, degree = 3, knots = c(-15,55))+bs(Poldur, degree = 1, knots = c(0.5,7.5))
++offset(log(Exppdays)), 
+data = db1a, family = poisson)
+
+summary(test_sp23)
+
+test_sp24= glm(Nb1~
+Gender+Type+Occupation+Density+Group1+Group2_4+Adind+Age+bs(Bonus, degree = 1, knots = c(0))+bs(Poldur, degree = 1, knots = c(0.5,7.5))
++offset(log(Exppdays)), 
+data = db1a, family = poisson)
+
+summary(test_sp24)
+
+
+#Age : D3;30,50#
+#Poldur : D1;1#
+
+test_sp25= glm(Nb1~
+Gender+Type+Occupation+Density+Group1+Group2_4+Adind+Age+bs(Poldur, degree = 1, knots = c(1))+Bonus
++offset(log(Exppdays)), 
+data = db1a, family = poisson)
+
+summary(test_sp25)
+
+
+test_sp26= glm(Nb1~
+Gender+Type+Occupation+Density+Group1+Group2_4+Adind+Age+bs(Bonus, degree = 3, knots = c(-15,55))+bs(Poldur, degree = 1, knots = c(1))
++offset(log(Exppdays)), 
+data = db1a, family = poisson)
+
+summary(test_sp26)
+
+test_sp27= glm(Nb1~
+Gender+Type+Occupation+Density+Group1+Group2_4+Adind+Age+bs(Bonus, degree = 1, knots = c(0))+bs(Poldur, degree = 1, knots = c(1))
++offset(log(Exppdays)), 
+data = db1a, family = poisson)
+
+summary(test_sp27)
+
+
+BIC_test_sp = rep(-1,27)
+
+BIC_test_sp[1] = BIC(test_sp1)
+BIC_test_sp[2] = BIC(test_sp2)
+BIC_test_sp[3] = BIC(test_sp3)
+BIC_test_sp[4] = BIC(test_sp4)
+BIC_test_sp[5] = BIC(test_sp5)
+BIC_test_sp[6] = BIC(test_sp6)
+BIC_test_sp[7] = BIC(test_sp7)
+BIC_test_sp[8] = BIC(test_sp8)
+BIC_test_sp[9] = BIC(test_sp9)
+BIC_test_sp[10] = BIC(test_sp10)
+BIC_test_sp[11] = BIC(test_sp11)
+BIC_test_sp[12] = BIC(test_sp12)
+BIC_test_sp[13] = BIC(test_sp13)
+BIC_test_sp[14] = BIC(test_sp14)
+BIC_test_sp[15] = BIC(test_sp15)
+BIC_test_sp[16] = BIC(test_sp16)
+BIC_test_sp[17] = BIC(test_sp17)
+BIC_test_sp[18] = BIC(test_sp18)
+BIC_test_sp[19] = BIC(test_sp19)
+BIC_test_sp[20] = BIC(test_sp20)
+BIC_test_sp[21] = BIC(test_sp21)
+BIC_test_sp[22] = BIC(test_sp22)
+BIC_test_sp[23] = BIC(test_sp23)
+BIC_test_sp[24] = BIC(test_sp24)
+BIC_test_sp[25] = BIC(test_sp25)
+BIC_test_sp[26] = BIC(test_sp26)
+BIC_test_sp[27] = BIC(test_sp27)
+
+
+
+which(BIC_test_sp == min(BIC_test_sp))
+BIC_test_sp
+
+plot(BIC_test_sp)
+
+BIC_9 = rep(1,9)
+BIC_9[1] = BIC(test_sp1)
+BIC_9[2] = BIC(test_sp2)
+BIC_9[3] = BIC(test_sp3)
+BIC_9[4] = BIC(test_sp4)
+BIC_9[5] = BIC(test_sp5)
+BIC_9[6] = BIC(test_sp6)
+BIC_9[7] = BIC(test_sp7)
+BIC_9[8] = BIC(test_sp8)
+BIC_9[9] = BIC(test_sp9)
+
+which(BIC_9 == min(BIC_9))
+BIC_9
+
+plot(BIC_9)
+
+
+
+#############################
+## Matrice de confusion    ##
+#############################
+
+pred_conf1 = predict(test_sp1, newdata = db1t,type ='response')
+pred_conf7 = predict(test_sp7, newdata = db1t,type ='response')
+pred_conf10 = predict(test_sp10, newdata = db1t,type ='response')
+
+mat_conf1 = matrix(1,ncol = 8, nrow = 8)
+mat_conf7 = matrix(1,ncol = 8, nrow = 8)
+mat_conf10 = matrix(1,ncol = 8, nrow = 8)
+
+mat_poids_err_lin = matrix(1,8,8)
+mat_poids_err_quad = matrix(1,8,8)
+
+
+
+for (i in 0:7){
+	for (j in 0:7){
+		mat_conf1[i+1,j+1] = length(which((Nb1t == i) & (round(pred_conf1) == j)))
+		mat_conf7[i+1,j+1] = length(which((Nb1t == i) & (round(pred_conf7) == j)))
+		mat_conf10[i+1,j+1] = length(which((Nb1t == i) & (round(pred_conf10) == j)))
+		
+		mat_poids_err_lin[i+1,j+1] = abs(i-j)
+		mat_poids_err_quad[i+1,j+1] = (i-j)^2
+	}
+}
+
+mat_conf1
+mat_conf7
+mat_conf10
+
+mat_poids_err_lin
+mat_poids_err_quad
+
+sum(diag(mat_conf1))/length(Nb1t)
+sum(diag(mat_conf7))/length(Nb1t)
+sum(diag(mat_conf10))/length(Nb1t)
+
+sum(mat_poids_err_lin*mat_conf1)
+sum(mat_poids_err_lin*mat_conf7)
+sum(mat_poids_err_lin*mat_conf10)
+
+sum(mat_poids_err_quad*mat_conf1)
+sum(mat_poids_err_quad*mat_conf7)
+sum(mat_poids_err_quad*mat_conf10)
+
 	#---------------------------------------------------#
 	##		Regression finale				   ##
 	#---------------------------------------------------#
 	
+
+
+	#=================#
+	# Reg avec arbres #
+	#=================#
+		
+	#Ici nous faisons reg avec les variables catégorielles issues de l'étude des arbres
+	#Ensuite nous allons comparer les BIC de cette régression avec l'ancienne (step1_4) puis
+	#avec la reg splinée
+
+	step_arb = stepwise(glm(Nb1~
+	Gender+Type+Category+Occupation+Age_Tr+Bonus_Tr+Poldur_Tr+Value+Density_Tr+(Group1)+Group2_4+Adind
+	+offset(log(Exppdays))
+	,data=db1a, family=poisson))
+
+	summary(step_arb)
+	BIC(step_arb)
+
+	Gender+Type+Category+Occupation+Age+Bonus+Poldur+Value+Density+(Group1)+Group2_4+Adind
+
+
 	#step_fin = stepwise(glm(Nb1~
 	#Gender+Type+Category+Occupation+Age_Tr+Bonus_Tr+Poldur+Value+Density_Tr+(Group1)+Group2_4
 	#+offset(log(Exppdays)),
@@ -474,6 +841,7 @@ cpopt
 	+offset(log(Exppdays)),data=db1a, family=poisson)
 
 	summary(step_opt)
+	BIC(step_opt)	
  
 #REGROUPER O P Q R AVEC L ?
 
@@ -492,16 +860,39 @@ step_opt_bis=glm(Nb1~Gender+Type+Occupation+Age_Tr+Bonus_Tr+Poldur+Density_Tr+(G
 
 #REGROUPER O P Q R T U 
 	
+
+	#===================#
+	# Reg avec splines  #
+	#===================#
 	
+	step_opt_bis=glm(Nb1~
+	Gender+Type+Occupation+
+	bs(Age, degree = 3, knots  = c(30,50))+
+	Bonus+
+	bs(Poldur, degree = 1, knots  = c(1))+
+	Density+
+	(Group1)+Group2_4
+	+offset(log(Exppdays))
+	,data=db1a, family=poisson)
+
+	summary(step_opt_bis)
+	BIC(step_opt_bis)
+
+	pred_step_opt_bis = predict(step_opt_bis, type = 'response', newdata = db1t)
+
+	BIC(step_opt_bis) - BIC(step1_4)
+
 	###################################
 	## 	EFFETS MARGINAUX MOYENS    ##
 	###################################
 	
-	modele1 = step_opt
+	modele1 = step_opt_bis
 	
 	
 	pred_marg = predict(modele1, type = 'response', newdata = db1a)
+	summary(pred_marg)
 	eff_marg_moy = mean(pred_marg)*coef(modele1)
+	eff_marg_moy
 	
 	
 	#=================#
@@ -529,12 +920,40 @@ step_opt_bis=glm(Nb1~Gender+Type+Occupation+Age_Tr+Bonus_Tr+Poldur+Density_Tr+(G
 	
 	
 	step_fin2 = glm(Nb1~
-	Gender+Type+Occupation+Age+Bonus+Poldur+Density+(Group1)+Group2_4+Adind
+	Gender+Type+Occupation+
+	bs(Age, degree = 3, knots  = c(30,50))+
+	Bonus+
+	bs(Poldur, degree = 1, knots  = c(1))+
+	Density+
+	(Group1)+Group2_4
 	+offset(log(Exppdays)),
 	data = db1a, family = quasipoisson)
 	
-	summary(step_fin2)
+	pred_fin2 = predict(step_fin2, type = 'response', newdata = db1t)	
 
+	summary(step_fin2)
+	BIC(step_fin2)
+
+
+	mat_conf_fin2 = matrix(1,ncol = 8, nrow = 8)
+
+	mat_poids_err_lin = matrix(1,8,8)
+	mat_poids_err_quad = matrix(1,8,8)
+
+
+
+for (i in 0:7){
+	for (j in 0:7){
+		mat_conf_fin2[i+1,j+1] = length(which((Nb1t == i) & (round(pred_fin2) == j)))
+		mat_poids_err_lin[i+1,j+1] = abs(i-j)
+		mat_poids_err_quad[i+1,j+1] = (i-j)^2
+	}
+}
+	
+
+	sum(diag(mat_conf_fin2))/length(Nb1t)
+	sum(mat_poids_err_lin*mat_conf_fin2)
+	sum(mat_poids_err_quad*mat_conf_fin2)
 
 
 
@@ -573,7 +992,11 @@ reg_zero_inf_ps = zeroinfl(Nb1~
 	data = db1a, dist = 'poisson', link = 'logit')
 
 summary(reg_zero_inf_ps)
-vuong(step1,reg_zero_inf_ps)
+vuong(modele1,reg_zero_inf_ps)
+
+
+
+
 
 reg_zero_inf_ps_1 = zeroinfl(Nb1~
 	Gender+Type+Occupation+Age+Bonus+Poldur+Density+(Group1)+Group2+Adind
@@ -582,6 +1005,51 @@ reg_zero_inf_ps_1 = zeroinfl(Nb1~
 
 summary(reg_zero_inf_ps_1)
 vuong(step1,reg_zero_inf_ps_1)
+
+
+reg_zero_inf_ps_2 = zeroinfl(Nb1~
+Gender+Type+Category+Occupation+Age+Bonus+Poldur+Density+(Group1)+Group2+Adind
+|Gender+Type+Category+Occupation+Age+Bonus+Poldur+Density+(Group1)+Group2+Adind,
+	offset = (log(Exppdays)),
+	data = db1a, dist = 'poisson', link = 'logit')
+
+summary(reg_zero_inf_ps_2)
+
+
+reg_zero_inf_ps_3 = zeroinfl(Nb1~
+Gender+Type+Category+Occupation+Age+Bonus+Poldur+Density+(Group1)+Group2+Adind
+|Gender+Category+Occupation+Age+Bonus+Group2+Adind,
+	offset = (log(Exppdays)),
+	data = db1a, dist = 'poisson', link = 'logit')
+
+summary(reg_zero_inf_ps_3)
+
+
+
+pred_zero_inf_ps1 = predict(reg_zero_inf_ps_1, type = 'response', newdata = db1t)
+
+
+	mat_conf_zero_p= matrix(1,ncol = 8, nrow = 8)
+
+	mat_poids_err_lin = matrix(1,8,8)
+	mat_poids_err_quad = matrix(1,8,8)
+
+
+
+for (i in 0:7){
+	for (j in 0:7){
+		mat_conf_zero_p[i+1,j+1] = length(which((Nb1t == i) & (round(pred_zero_inf_ps1) == j)))
+		mat_poids_err_lin[i+1,j+1] = abs(i-j)
+		mat_poids_err_quad[i+1,j+1] = (i-j)^2
+	}
+}
+	
+
+	sum(diag(mat_conf_zero_p))/length(Nb1t)
+	sum(mat_poids_err_lin*mat_conf_zero_p)
+	sum(mat_poids_err_quad*mat_conf_zero_p)
+
+
 
 
 #######REG BIN NEG#########"
@@ -600,6 +1068,79 @@ reg_zero_inf_neg_bin_1 = zeroinfl(Nb1~
 
 summary(reg_zero_inf_neg_bin_1)
 #vuong(reg_neg_bin1,reg_zero_inf_neg_bin_1)
+
+reg_zero_inf_neg_bin_2 = zeroinfl(Nb1~
+Gender+Type+Category+Occupation+Age+Bonus+Poldur+Value+Density+(Group1)+Group2+Adind
+|Gender+Type+Category+Occupation+Age+Bonus+Poldur+Value+Density+(Group1)+Group2+Adind
+,offset = (log(Exppdays)),
+	data = db1a, dist = 'negbin', link = 'logit')
+
+summary(reg_zero_inf_neg_bin_2)
+
+reg_zero_inf_neg_bin_3 = zeroinfl(Nb1~
+Gender+Type+Category+Occupation+Age+Bonus+Poldur+Density+(Group1)+Group2+Adind
+|Gender+Category+Occupation+Age+Bonus+Adind
+,offset = (log(Exppdays)),
+	data = db1a, dist = 'negbin', link = 'logit')
+
+summary(reg_zero_inf_neg_bin_3)
+
+
+## CCL -> Pour le zero, on change Occupation pour n'avoir que retraités ou autres
+
+Retraite_zero_nb1 = rep(0,n_db1)
+Retraite_zero_nb1[which(Occupation == "Retired")] = 1
+db1$Retraite_zero_nb1 = Retraite_zero_nb1
+
+Group2_5 = Group2
+Group2_5[which(Group2 == "L" | Group2 == "S" | Group2 == "U")] = "L"
+db1$Group2_5 = Group2_5
+
+
+
+attach(db1)
+
+
+reg_zero_inf_neg_bin_4 = zeroinfl(Nb1~
+Gender+Type+Category+Occupation+Age+Bonus+Poldur+Density+(Group1)+Group2_5+Adind
+|Gender+Category+Retraite_zero_nb1+Age+Bonus
+,offset = (log(Exppdays)),
+	data = db1a, dist = 'negbin', link = 'logit')
+
+summary(reg_zero_inf_neg_bin_4)
+
+res.nb4 = residuals(reg_zero_inf_neg_bin_4, type = 'pearson', newdata = db1t)
+
+hist(res.nb4)
+summary(res.nb4)
+
+
+pred_zero_inf_nb1 = predict(reg_zero_inf_neg_bin_4, type = 'response', newdata = db1t)
+
+
+	mat_conf_zero_nb1= matrix(1,ncol = 8, nrow = 8)
+
+	mat_poids_err_lin = matrix(1,8,8)
+	mat_poids_err_quad = matrix(1,8,8)
+
+
+
+for (i in 0:7){
+	for (j in 0:7){
+		mat_conf_zero_nb1[i+1,j+1] = length(which((Nb1t == i) & (round(pred_zero_inf_nb1) == j)))
+		mat_poids_err_lin[i+1,j+1] = abs(i-j)
+		mat_poids_err_quad[i+1,j+1] = (i-j)^2
+	}
+}
+	
+
+	sum(diag(mat_conf_zero_nb1))/length(Nb1t)
+	sum(mat_poids_err_lin*mat_conf_zero_nb1)
+	sum(mat_poids_err_quad*mat_conf_zero_nb1)
+
+hist(Nb1t)
+hist(pred_zero_inf_nb1)
+hist(pred_fin2, add = T)
 
 
 ####ETUDIER DES REGROUPEMENTS DE MODALITES######
