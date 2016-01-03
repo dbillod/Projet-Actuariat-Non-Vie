@@ -16,8 +16,8 @@
 	#dim(pricing)
 	##La base a 36311 lignes et 15 colonnes
 	
-	#pricing = read.csv2("C:/Users/David/Documents/ENSAE/3A/Actuariat Non-Vie/pricing.csv")
-	#pricing = pricing[,-1]
+	pricing = read.csv2("C:/Users/David/Documents/ENSAE/3A/Actuariat Non-Vie/pricing.csv")
+	pricing = pricing[,-1]
 	
 	## La base s'appelle base_ensae_1
 	
@@ -276,7 +276,7 @@ arb_age = rpart(Nb1~
 	
 	
 	
-	reg_age_fac = glm(Nb1~as.factor(Age), data = db1a, family = poisson)
+	reg_age_fac =x glm(Nb1~as.factor(Age), data = db1a, family = poisson)
 	pred_age_fac = predict(reg_age_fac,type = 'response', newdata = db1a)
 	
 	
@@ -284,7 +284,7 @@ arb_age = rpart(Nb1~
 	pred_age = predict(reg_age, type = 'response', newdata = db1a)
 	
 	
-	reg_age_sp = glm(Nb1~bs(Age, degree = 1, knots = c(35)), data = db1a, family = poisson)
+	reg_age_sp = glm(Nb1~bs(Age, degree = 3, knots = c(30,50)), data = db1a, family = poisson)
 	pred_age_sp = predict(reg_age_sp, type = 'response', newdata = db1a)
 	
 	BIC(reg_age_sp)
@@ -306,8 +306,9 @@ arb_age = rpart(Nb1~
 		scale_colour_manual("",breaks = c("Catégorielle","Linéaire", "Spline"),values = c("black", "red", "blue"))+
 		ggtitle("Age")+
 		xlab("Age")+
-		geom_line(data = data_age1 , aes(x=Age[ind],y=pred_age_sp,color= "Spline"))
-		
+		geom_line(data = data_age1 , aes(x=Age[ind],y=pred_age_sp,color= "Spline"))+
+		geom_vline(data = data_age1, aes(xintercept = 30), colour = "purple")+
+		geom_vline(data = data_age1, aes(xintercept = 50), colour = "purple")
 	
 	#-> Noeuds : vers 32
 
@@ -389,7 +390,7 @@ cpopt
 	pred_dur = predict(reg_dur, type = 'response', newdata = db1a)
 	
 	
-	reg_dur_sp = glm(Nb1~bs(Poldur, degree = 3, knots = c(1,10)), data = db1a, family = poisson)
+	reg_dur_sp = glm(Nb1~bs(Poldur, degree = 1, knots = c(1)), data = db1a, family = poisson)
 	pred_dur_sp = predict(reg_dur_sp, type = 'response', newdata = db1a)
 	
 	BIC(reg_dur_sp)
@@ -408,9 +409,12 @@ cpopt
 		geom_line()+
 		geom_line(data = data_dur1 , aes(x=Poldur[ind],y=pred_dur,color= "Linéaire"))+
 		ylab("Prédiction")+
-		scale_colour_manual("",breaks = c("Catégorielle","Linéaire"),values = c("black", "red"))+
+		scale_colour_manual("",breaks = c("Catégorielle","Linéaire", "Spline"),values = c("black", "red", "blue"))+
 		ggtitle("Ancienneté")+
-		xlab("Ancienneté")
+		xlab("Ancienneté")+
+		geom_line(data = data_dur1 , aes(x=Poldur[ind],y=pred_dur_sp,color= "Spline"))+
+		geom_vline(data = data_dur1, aes(xintercept = 1), colour = "purple")
+
 	
 	
 	## Noeuds : vers 2
@@ -880,6 +884,15 @@ step_opt_bis=glm(Nb1~Gender+Type+Occupation+Age_Tr+Bonus_Tr+Poldur+Density_Tr+(G
 
 	pred_step_opt_bis = predict(step_opt_bis, type = 'response', newdata = db1t)
 
+	data_step_opt_bis = as.data.frame(pred_step_opt_bis)
+	
+	ggplot(data_step_opt_bis, aes(pred_step_opt_bis)) +
+	geom_histogram(binwidth = 0.05, fill = 'light blue', color = 'red')+	
+	ggtitle("Prévisions : Modèle Quasi-Poisson")+
+	xlab("Prédictions")+
+	ylab("Fréquence")+
+	xlim(c(0,2))
+	
 	BIC(step_opt_bis) - BIC(step1_4)
 
 	###################################
@@ -929,11 +942,20 @@ step_opt_bis=glm(Nb1~Gender+Type+Occupation+Age_Tr+Bonus_Tr+Poldur+Density_Tr+(G
 	+offset(log(Exppdays)),
 	data = db1a, family = quasipoisson)
 	
-	pred_fin2 = predict(step_fin2, type = 'response', newdata = db1t)	
+	pred_step_fin2 = predict(step_fin2, type = 'response', newdata = db1t)	
 
 	summary(step_fin2)
 	BIC(step_fin2)
-
+	
+	data_step_fin2 = as.data.frame(pred_step_fin2)
+	
+	ggplot(data_step_fin2, aes(pred_step_fin2)) +
+	geom_histogram(binwidth = 0.05, fill = 'light blue', color = 'red')+	
+	ggtitle("Prévisions : Modèle Quasi-Poisson")+
+	xlab("Prédictions")+
+	ylab("Fréquence")+
+	xlim(c(0,2))
+	
 
 	mat_conf_fin2 = matrix(1,ncol = 8, nrow = 8)
 
@@ -950,10 +972,24 @@ for (i in 0:7){
 	}
 }
 	
-
+	mat_conf_fin2
 	sum(diag(mat_conf_fin2))/length(Nb1t)
 	sum(mat_poids_err_lin*mat_conf_fin2)
 	sum(mat_poids_err_quad*mat_conf_fin2)
+
+mat_zero = matrix(0,8,8)
+
+for (i in 0:7){
+	for (j in 0:7){
+		mat_zero[i+1,j+1] = length(which((Nb1t == i) & (0 == j)))
+		mat_poids_err_lin[i+1,j+1] = abs(i-j)
+		mat_poids_err_quad[i+1,j+1] = (i-j)^2
+	}
+}
+mat_zero
+	sum(diag(mat_zero))/length(Nb1t)
+	sum(mat_poids_err_lin*mat_zero)
+	sum(mat_poids_err_quad*mat_zero)
 
 
 
@@ -1018,7 +1054,7 @@ summary(reg_zero_inf_ps_2)
 
 reg_zero_inf_ps_3 = zeroinfl(Nb1~
 Gender+Type+Category+Occupation+Age+Bonus+Poldur+Density+(Group1)+Group2+Adind
-|Gender+Category+Occupation+Age+Bonus+Group2+Adind,
+|Gender+Occupation+Age+Bonus+Group2,
 	offset = (log(Exppdays)),
 	data = db1a, dist = 'poisson', link = 'logit')
 
@@ -1026,7 +1062,7 @@ summary(reg_zero_inf_ps_3)
 
 
 
-pred_zero_inf_ps1 = predict(reg_zero_inf_ps_1, type = 'response', newdata = db1t)
+pred_zero_inf_ps1 = predict(reg_zero_inf_ps_3, type = 'response', newdata = db1t)
 
 
 	mat_conf_zero_p= matrix(1,ncol = 8, nrow = 8)
@@ -1093,7 +1129,7 @@ Retraite_zero_nb1[which(Occupation == "Retired")] = 1
 db1$Retraite_zero_nb1 = Retraite_zero_nb1
 
 Group2_5 = Group2
-Group2_5[which(Group2 == "L" | Group2 == "S" | Group2 == "U")] = "L"
+Group2_5[which(Group2 == "L" | Group2 == "S" | Group2 == "T" | Group2 == "U")] = "L"
 db1$Group2_5 = Group2_5
 
 
@@ -1103,7 +1139,7 @@ attach(db1)
 
 reg_zero_inf_neg_bin_4 = zeroinfl(Nb1~
 Gender+Type+Category+Occupation+Age+Bonus+Poldur+Density+(Group1)+Group2_5+Adind
-|Gender+Category+Retraite_zero_nb1+Age+Bonus
+|Gender+Retraite_zero_nb1+Age+Bonus
 ,offset = (log(Exppdays)),
 	data = db1a, dist = 'negbin', link = 'logit')
 
@@ -1113,6 +1149,40 @@ res.nb4 = residuals(reg_zero_inf_neg_bin_4, type = 'pearson', newdata = db1t)
 
 hist(res.nb4)
 summary(res.nb4)
+
+
+
+reg_zero_inf_neg_bin_5 = zeroinfl(Nb1~
+Gender+Type+Category+Occupation+bs(Age, degree = 3, knots  = c(30,50))+Bonus+bs(Poldur, degree = 1, knots  = c(1))+Density+(Group1)+Group2_5+Adind
+|Gender+Retraite_zero_nb1+bs(Age, degree = 1, knots = c(35,65))+bs(Bonus, degree = 2, knots = c(-20,0,60))
+,offset = (log(Exppdays)),
+	data = db1a, dist = 'negbin', link = 'logit')
+
+summary(reg_zero_inf_neg_bin_5)
+
+
+pred_zero_inf_nb2 = predict(reg_zero_inf_neg_bin_5, type = 'response', newdata = db1t)
+
+	mat_conf_zero_nb2= matrix(1,ncol = 8, nrow = 8)
+
+	mat_poids_err_lin = matrix(1,8,8)
+	mat_poids_err_quad = matrix(1,8,8)
+
+
+
+for (i in 0:7){
+	for (j in 0:7){
+		mat_conf_zero_nb2[i+1,j+1] = length(which((Nb1t == i) & (round(pred_zero_inf_nb2) == j)))
+		mat_poids_err_lin[i+1,j+1] = abs(i-j)
+		mat_poids_err_quad[i+1,j+1] = (i-j)^2
+	}
+}
+	
+mat_conf_zero_nb2
+	sum(diag(mat_conf_zero_nb2))/length(Nb1t)
+	sum(mat_poids_err_lin*mat_conf_zero_nb2)
+	sum(mat_poids_err_quad*mat_conf_zero_nb2)
+
 
 
 pred_zero_inf_nb1 = predict(reg_zero_inf_neg_bin_4, type = 'response', newdata = db1t)
@@ -1133,7 +1203,7 @@ for (i in 0:7){
 	}
 }
 	
-
+mat_conf_zero_nb1
 	sum(diag(mat_conf_zero_nb1))/length(Nb1t)
 	sum(mat_poids_err_lin*mat_conf_zero_nb1)
 	sum(mat_poids_err_quad*mat_conf_zero_nb1)
@@ -1142,5 +1212,94 @@ hist(Nb1t)
 hist(pred_zero_inf_nb1)
 hist(pred_fin2, add = T)
 
+data_zero_inf_nb1 = as.data.frame(pred_zero_inf_nb1)
+	
+	ggplot(data_zero_inf_nb1, aes(pred_zero_inf_nb1)) +
+	geom_histogram(binwidth = 0.05, fill = 'light blue', color = 'red')+	
+	ggtitle("Prévisions : Modèle à inflation de zéros")+
+	xlab("Prédictions")+
+	ylab("Fréquence")+
+	xlim(c(0,2))
+	
+data_tot = data.frame(data_step_fin2[,1],data_zero_inf_nb1[,1])
 
-####ETUDIER DES REGROUPEMENTS DE MODALITES######
+
+	ggplot(data_tot, aes(data_tot[,1]) +
+	geom_histogram(binwidth = 0.05, fill = 'light blue', color = 'red')+	
+	ggtitle("Prévisions : Modèle à inflation de zéros")+
+	xlab("Prédictions")+
+	ylab("Fréquence")+
+	xlim(c(0,2))+
+	ggplot(data_tot, aes(data_tot[,2]))
+	
+
+
+
+
+#!!!!!!!!!!!!!!!!!!!!!!!!!!!!#
+####ECRITURE PREDICTIONS######
+#!!!!!!!!!!!!!!!!!!!!!!!!!!!!#
+
+
+
+
+
+n_pricing = dim(pricing)[1]
+#Gender
+a_pricing = rep(0,n_pricing)
+ind_a_pricing = which(pricing$Gender == 'Female')
+a_pricing[ind_a_pricing] = 1
+
+pricing$Gender = a_pricing
+
+pricing$Exppdays = rep(1,n_pricing)
+
+pricing$Density = as.numeric(as.character(pricing$Density))
+
+
+pricing$Group2_4 = pricing$Group2
+ind_Group2_4_pricing = which(pricing$Group2 == "L" | pricing$Group2 == "S" | pricing$Group2 == "T" | pricing$Group2 == "U" )
+pricing$Group2_4[ind_Group2_4_pricing] = "L"
+
+new2 = db1a[1:n_pricing,]
+new2$Group2_4 = Group2_4[1:n_pricing]
+
+
+new2$PolNum = pricing$PolNum
+new2$CalYear = pricing$CalYear
+new2$Gender = pricing$Gender
+new2$Type = pricing$Type
+new2$Category = pricing$Category
+new2$Occupation = pricing$Occupation
+new2$Age = pricing$Age
+new2$Group1 = pricing$Group1
+new2$Bonus = pricing$Bonus
+new2$Poldur = pricing$Poldur
+new2$Value = pricing$Value
+new2$Adind = pricing$Adind
+new2$SubGroup2 = pricing$SubGroup2
+new2$Group2 = pricing$Group2
+new2$Density = pricing$Density
+new2$Exppdays = pricing$Exppdays
+new2$Group2_4 = pricing$Group2_4
+
+#pred_step_fin2
+s_fin1 = predict(step_fin2, type = 'response', newdata = new2)
+summary(s_fin1)
+
+
+s_fin2 = predict(reg_zero_inf_neg_bin_4, type = 'response', newdata = new2)
+summary(s_fin2)
+
+summary(s_fin1 - s_fin2)
+hist(s_fin1 - s_fin2)
+
+pricing_Toullet_Billod = data.frame(pricing$PolNum, Freq1 = rep(0,n_pricing), Freq2= rep(0,n_pricing))
+
+pricing_Toullet_Billod[,2] = s_fin1
+pricing_Toullet_Billod[,3] = s_fin2
+
+write.csv2(ind, file  = 'ind_tir.csv')
+
+getwd()
+write.csv2(pricing_Toullet_Billod, file='Projet2_Toullet_Billod_pricing.csv')
