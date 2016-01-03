@@ -943,7 +943,8 @@ step_opt_bis=glm(Nb1~Gender+Type+Occupation+Age_Tr+Bonus_Tr+Poldur+Density_Tr+(G
 	data = db1a, family = quasipoisson)
 	
 	pred_step_fin2 = predict(step_fin2, type = 'response', newdata = db1t)	
-
+	mse_fin2 = sum(step_fin2$residuals^2)
+	mse_fin2
 	summary(step_fin2)
 	BIC(step_fin2)
 	
@@ -1144,6 +1145,7 @@ Gender+Type+Category+Occupation+Age+Bonus+Poldur+Density+(Group1)+Group2_5+Adind
 	data = db1a, dist = 'negbin', link = 'logit')
 
 summary(reg_zero_inf_neg_bin_4)
+mse_zero_inf_neg_bin4 = sum(reg_zero_inf_neg_bin_4$residuals^2)
 
 res.nb4 = residuals(reg_zero_inf_neg_bin_4, type = 'pearson', newdata = db1t)
 
