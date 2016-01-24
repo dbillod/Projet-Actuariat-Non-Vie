@@ -58,3 +58,10 @@ ggplot(data_vec,aes(x = data_vec[,1], y=data_vec[,2]))+
 	geom_smooth(method=lm)
 
 # -> L'hypothèse centrale de Chain Ladder semble vérifiée
+
+CDR(chain_std1)
+
+
+BCL1 = BootChainLadder ( Triangle = triangle, R = 999 , process.distr = "od.pois")
+BCL1
+plot(BCL1)
