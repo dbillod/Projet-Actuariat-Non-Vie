@@ -94,8 +94,63 @@ data_reg = data.frame(incr_emp, ligne, colonne)
 reg_poiss1 = glm(incr_emp~ligne+colonne, data = data_reg, family = 'poisson')
 summary(reg_poiss1)
 
+length(incr_emp)
+length(pred_poiss1)
+
+annee_new = rep(1:dim(triangle)[1],times = dim(triangle)[1])
+annee_new
+
+dvpt_new = rep(1:dim(triangle)[2],each = dim(triangle)[2])
+dvpt_new
+
+newbase = data.frame(as.factor(annee_new), as.factor(dvpt_new))
+pred_poiss1 = predict(reg_poiss1, type = 'response', newdata = newbase)
+summary(pred_poiss1)
+
+triangle_pred = matrix(pred_poiss1, dim(triangle)[1], dim(triangle)[2])
+triangle_pred
+incr
+
 #Il faut alors prédire tous les incréments inconnus, puis sommer ligne par ligne les incréments inconnus
 #On a alors l'incrément inconnu total ligne par ligne, puis en sommant ces incréments on obtient notre PSAP
+
+
+
+
+#Contruisons triangle_pred2, avec les incréments connus pour moitié et les prédits pour autre moitié
+triangle_pred2 = incr
+for (i in 1:dim(triangle)[1]){
+	for (j in 1:dim(triangle)[2]){
+		if (is.na(incr[i,j])){
+			triangle_pred2[i,j] = triangle_pred[i,j]
+		}
+	}
+}
+triangle_pred2
+incr
+triangle_pred
+
+vec_paiements_totaux = rep(1:dim(triangle)[1])
+for (i in 1:dim(triangle)[1]){
+	vec_paiements_totaux[i] = sum(triangle_pred2[i,])
+}
+
+vec_paiements_totaux
+length(vec_paiements_totaux)
+
+
+vec_reserve = rep(1:dim(triangle)[1])
+for (i in 1: dim(triangle)[1]){
+	vec_reserve[i] = vec_paiements_totaux[i] - triangle[i,dim(triangle)[2]-i+1]
+}
+vec_reserve
+sum(vec_reserve)
+
+
+
+# On essaie avec une quasi poisson et une binomiale négative pour voir la sensibilité de l'évualtion des IBNR
+
+
 
 #################################################################
 ## On va utiliser le bootstrap pour obtneir notre quantile 99.5%
