@@ -27,8 +27,24 @@ triangle
 rownames(triangle) = 1:14
 class(triangle[1,1])
 
+
+# On va créer le triangle  des incréments de paiements
+incr = triangle
+for (i in 1: dim(triangle)[1]){
+	for (j in 2:dim(triangle)[2]){
+		incr[i,j] = triangle[i,j] - triangle[i,j-1]
+	}
+}
+incr
+
 chain_std1 = MackChainLadder(triangle)
 chain_std1
+
+
+# Ultimate Loss and Tail Factor
+chain_std2 = MackChainLadder(triangle, tail = T)
+chain_std2
+
 
 #-------------------------------------------------#
 # On teste l'hypothèse Chain Ladder en plottant 
@@ -47,7 +63,7 @@ chain_std1
 
 
 
-colonne_test = 12
+colonne_test = 8
 vec_x = as.numeric(triangle[1:(dim(triangle)[1]-colonne_test),colonne_test])
 vec_y = as.numeric(triangle[1:(dim(triangle)[1]-colonne_test),colonne_test+1])
 data_vec = data.frame(ordo = vec_y,abs = vec_x)
@@ -62,6 +78,28 @@ ggplot(data_vec,aes(x = data_vec[,1], y=data_vec[,2]))+
 CDR(chain_std1)
 
 
+#######################################
+## Faire une régression de Poisson ####
+#######################################
+
+#On va empiler les incréments de paiements en 1 vecteur
+incr_emp = as.vector(as.matrix(incr))
+ligne = as.factor(rep(1:dim(triangle)[2], each = dim(triangle)[2]))
+colonne = as.factor( rep(1:dim(triangle)[2], dim(triangle)[2]))
+
+ligne
+colonne
+
+data_reg = data.frame(incr_emp, ligne, colonne)
+reg_poiss1 = glm(incr_emp~ligne+colonne, data = data_reg, family = 'poisson')
+summary(reg_poiss1)
+
+#Il faut alors prédire tous les incréments inconnus, puis sommer ligne par ligne les incréments inconnus
+#On a alors l'incrément inconnu total ligne par ligne, puis en sommant ces incréments on obtient notre PSAP
+
+#################################################################
+## On va utiliser le bootstrap pour obtneir notre quantile 99.5%
 BCL1 = BootChainLadder ( Triangle = triangle, R = 999 , process.distr = "od.pois")
 BCL1
 plot(BCL1)
+#################################################################
