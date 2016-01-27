@@ -1,6 +1,10 @@
 library(readODS)
 library(ChainLadder)
 library(ggplot2)
+library(MASS)
+library(AER)
+library(pscl)
+library(gamlss)
 
 ##########################################
 ## RECUPERATION DES DONNEES ##############
@@ -94,6 +98,30 @@ data_reg = data.frame(incr_emp, ligne, colonne)
 reg_poiss1 = glm(incr_emp~ligne+colonne, data = data_reg, family = 'poisson')
 summary(reg_poiss1)
 
+dispersiontest(reg_poiss1)
+
+reg_quasi_poiss = glm(incr_emp~ligne+colonne, data = data_reg, family = 'quasipoisson')
+summary(reg_quasi_poiss)
+
+
+
+#On recode pour les modalités non significatives
+ligne_quasi = ligne
+colonne_quasi = colonne
+
+ligne_quasi[which(ligne == 12 | ligne == 14)] = "1"
+colonne_quasi[which(colonne == 2 | colonne == 3 | colonne == 4 | colonne == 5 |colonne == 6)] = "1"
+
+reg_quasi_poiss2 = glm(incr_emp~ligne_quasi+colonne_quasi, data = data_reg, family = 'quasipoisson')
+summary(reg_quasi_poiss2)
+
+
+# Neg binomiale
+
+reg_nb = glm.nb(incr_emp~ligne+colonne, data = data_reg)
+summary(reg_nb)
+
+
 length(incr_emp)
 length(pred_poiss1)
 
@@ -104,8 +132,21 @@ dvpt_new = rep(1:dim(triangle)[2],each = dim(triangle)[2])
 dvpt_new
 
 newbase = data.frame(as.factor(annee_new), as.factor(dvpt_new))
+
 pred_poiss1 = predict(reg_poiss1, type = 'response', newdata = newbase)
 summary(pred_poiss1)
+
+pred_quasi_poiss = predict(reg_quasi_poiss, type = 'response', newdata = newbase)
+summary(pred_quasi_poiss)
+
+#On retrouve les mêmes résultats que sans surdispersion : c'est normal
+prod(pred_poiss1 == pred_quasi_poiss)
+
+pred_quasi_poiss2 = predict(reg_quasi_poiss2, type = 'response', newdata = newbase)
+summary(pred_quasi_poiss2)
+
+pred_nb = predict(reg_nb, type = 'response', newdata = newbase)
+
 
 triangle_pred = matrix(pred_poiss1, dim(triangle)[1], dim(triangle)[2])
 triangle_pred
@@ -130,6 +171,68 @@ triangle_pred2
 incr
 triangle_pred
 
+########
+#Triangle prédit avec surdispersion et regroupement de modalités
+########
+
+
+triangle_pred_quasi2 = matrix(pred_quasi_poiss2, dim(triangle)[1], dim(triangle)[2])
+triangle_pred_quasi2
+incr
+
+
+#Contruisons triangle_pred_quasi3, avec les incréments connus pour moitié et les prédits pour autre moitié
+triangle_pred_quasi3 = incr
+for (i in 1:dim(triangle)[1]){
+	for (j in 1:dim(triangle)[2]){
+		if (is.na(incr[i,j])){
+			triangle_pred_quasi3[i,j] = triangle_pred_quasi2[i,j]
+		}
+	}
+}
+triangle_pred_quasi3
+incr
+triangle_pred
+
+## Negative binomiale
+
+triangle_pred_nb = matrix(pred_nb, dim(triangle)[1], dim(triangle)[2])
+triangle_pred_nb
+incr
+
+#Il faut alors prédire tous les incréments inconnus, puis sommer ligne par ligne les incréments inconnus
+#On a alors l'incrément inconnu total ligne par ligne, puis en sommant ces incréments on obtient notre PSAP
+
+
+
+
+#Contruisons triangle_pred2, avec les incréments connus pour moitié et les prédits pour autre moitié
+triangle_pred_nb2 = incr
+for (i in 1:dim(triangle)[1]){
+	for (j in 1:dim(triangle)[2]){
+		if (is.na(incr[i,j])){
+			triangle_pred_nb2[i,j] = triangle_pred_nb[i,j]
+		}
+	}
+}
+triangle_pred_nb2
+incr
+triangle_pred_nb
+
+
+
+
+
+
+
+#################################################
+# Construction des vecteurs de paiements finaux #
+#################################################
+
+#====================#
+# Pour Poisson 	   #
+#====================#
+
 vec_paiements_totaux = rep(1:dim(triangle)[1])
 for (i in 1:dim(triangle)[1]){
 	vec_paiements_totaux[i] = sum(triangle_pred2[i,])
@@ -149,6 +252,52 @@ sum(vec_reserve)
 
 
 # On essaie avec une quasi poisson et une binomiale négative pour voir la sensibilité de l'évualtion des IBNR
+
+
+#=====================#
+# Quasi Poisson 	    #
+#=====================#
+
+vec_paiements_totaux_quasi = rep(1:dim(triangle)[1])
+for (i in 1:dim(triangle)[1]){
+	vec_paiements_totaux_quasi[i] = sum(triangle_pred_quasi3[i,])
+}
+
+vec_paiements_totaux_quasi
+length(vec_paiements_totaux_quasi)
+
+
+vec_reserve_quasi = rep(1:dim(triangle)[1])
+for (i in 1: dim(triangle)[1]){
+	vec_reserve_quasi[i] = vec_paiements_totaux_quasi[i] - triangle[i,dim(triangle)[2]-i+1]
+}
+vec_reserve_quasi
+sum(vec_reserve_quasi)
+
+
+#===============#
+# Neg binomiale #
+#===============#
+
+vec_paiements_totaux_nb = rep(1:dim(triangle)[1])
+for (i in 1:dim(triangle)[1]){
+	vec_paiements_totaux_nb[i] = sum(triangle_pred_nb2[i,])
+}
+
+vec_paiements_totaux_nb
+length(vec_paiements_totaux_nb)
+
+
+vec_reserve_nb = rep(1:dim(triangle)[1])
+for (i in 1: dim(triangle)[1]){
+	vec_reserve_nb[i] = vec_paiements_totaux_nb[i] - triangle[i,dim(triangle)[2]-i+1]
+}
+vec_reserve_nb
+sum(vec_reserve_nb)
+
+
+
+
 
 
 
