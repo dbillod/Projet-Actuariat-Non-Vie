@@ -44,6 +44,13 @@ incr
 chain_std1 = MackChainLadder(triangle)
 chain_std1
 
+#On va construire le vecteur des cadences de paiements
+cad_CH1 = rep(1,length(chain_std1$f))
+for (i in 1:length(chain_std1$f)){
+	cad_CH1[i] = 1/prod(chain_std1$f[i:length(chain_std1$f)])
+}
+cad_CH1
+
 
 # Ultimate Loss and Tail Factor
 chain_std2 = MackChainLadder(triangle, tail = T)
@@ -67,7 +74,7 @@ chain_std2
 
 
 
-colonne_test = 8
+colonne_test = 2
 vec_x = as.numeric(triangle[1:(dim(triangle)[1]-colonne_test),colonne_test])
 vec_y = as.numeric(triangle[1:(dim(triangle)[1]-colonne_test),colonne_test+1])
 data_vec = data.frame(ordo = vec_y,abs = vec_x)
@@ -112,7 +119,9 @@ colonne_quasi = colonne
 ligne_quasi[which(ligne == 12 | ligne == 14)] = "1"
 colonne_quasi[which(colonne == 2 | colonne == 3 | colonne == 4 | colonne == 5 |colonne == 6)] = "1"
 
-reg_quasi_poiss2 = glm(incr_emp~ligne_quasi+colonne_quasi, data = data_reg, family = 'quasipoisson')
+data_reg2 = data.frame(incr_emp, ligne_quasi, colonne_quasi)
+
+reg_quasi_poiss2 = glm(incr_emp~ligne_quasi+colonne_quasi, data = data_reg2, family = 'quasipoisson')
 summary(reg_quasi_poiss2)
 
 
@@ -142,10 +151,31 @@ summary(pred_quasi_poiss)
 #On retrouve les mêmes résultats que sans surdispersion : c'est normal
 prod(pred_poiss1 == pred_quasi_poiss)
 
-pred_quasi_poiss2 = predict(reg_quasi_poiss2, type = 'response', newdata = newbase)
+annee_new2 = rep(1:dim(triangle)[1],times = dim(triangle)[1])
+dvpt_new2 = rep(1:dim(triangle)[2],each = dim(triangle)[2])
+
+annee_new2[which(annee_new == 12 | annee_new == 14)] = "1"
+dvpt_new2[which(dvpt_new ==2 | dvpt_new == 3 | dvpt_new == 4 | dvpt_new == 5 | dvpt_new ==6)] = "1"
+
+newbase2 = data.frame(as.factor(annee_new2), as.factor(dvpt_new2))
+
+pred_quasi_poiss2 = predict(reg_quasi_poiss2, type = 'response', newdata = newbase2)
 summary(pred_quasi_poiss2)
 
 pred_nb = predict(reg_nb, type = 'response', newdata = newbase)
+summary(pred_nb)
+
+type_pred = rep(0, length(pred_nb))
+
+
+
+data_pred = data.frame(pred_poiss1, pred_quasi_poiss2, pred_nb)
+names(data_pred)
+
+ggplot(data_pred, aes(x = cbind(pred_poiss1, pred_quasi_poiss2, pred_nb))) + 
+	geom_histogram(data_pred, aes(pred_poiss1), fill ='red')+
+	geom_histogram(data_pred, aes(x = pred_quasi_poiss2), fill ='blue')+
+	geom_histogram(data_pred, aes(x = pred_nb), fill ='green')
 
 
 triangle_pred = matrix(pred_poiss1, dim(triangle)[1], dim(triangle)[2])
