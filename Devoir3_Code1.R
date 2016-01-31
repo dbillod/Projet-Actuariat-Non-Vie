@@ -45,6 +45,7 @@ chain_std1 = MackChainLadder(triangle)
 chain_std1
 
 plot(chain_std1)
+plot(chain_std1,  which = 4 )
 plot(chain_std1, lattice = T)
 
 
@@ -195,6 +196,9 @@ data_reg2 = data.frame(incr_emp, ligne_quasi, colonne_quasi)
 reg_quasi_poiss2 = glm(incr_emp~ligne_quasi+colonne_quasi, data = data_reg2, family = 'quasipoisson')
 summary(reg_quasi_poiss2)
 
+reg_quasi_poiss3 = glm(incr_emp~ligne+colonne, data = data_reg2, family = 'quasipoisson')
+summary(reg_quasi_poiss3)
+
 
 # Neg binomiale
 
@@ -233,9 +237,16 @@ head(newbase2, 8)
 pred_quasi_poiss2 = predict(reg_quasi_poiss2, type = 'response', newdata = newbase2)
 summary(pred_quasi_poiss2)
 
+pred_quasi_poiss3 = predict(reg_quasi_poiss3, type = 'response', newdata = newbase2)
+summary(pred_quasi_poiss3)
+
+prod(pred_quasi_poiss2 == pred_quasi_poiss3)
+
 pred_nb = predict(reg_nb, type = 'response', newdata = newbase)
 summary(pred_nb)
 
+hist(pred_poiss1)
+hist(pred_nb, add = T, color = 'blue')
 type_pred = rep(0, length(pred_nb))
 
 
@@ -294,6 +305,32 @@ for (i in 1:dim(triangle)[1]){
 triangle_pred_quasi3
 incr
 triangle_pred
+
+
+#Seconde tentative pour quasipoisson
+
+triangle_pred_quasi22 = matrix(pred_quasi_poiss3, dim(triangle)[1], dim(triangle)[2])
+triangle_pred_quas22
+incr
+
+
+#Contruisons triangle_pred_quasi3, avec les incréments connus pour moitié et les prédits pour autre moitié
+triangle_pred_quasi32 = incr
+for (i in 1:dim(triangle)[1]){
+	for (j in 1:dim(triangle)[2]){
+		if (is.na(incr[i,j])){
+			triangle_pred_quasi32[i,j] = triangle_pred_quasi22[i,j]
+		}
+	}
+}
+triangle_pred_quasi32
+incr
+triangle_pred
+
+
+
+
+
 
 ## Negative binomiale
 
@@ -376,6 +413,30 @@ vec_reserve_quasi
 sum(vec_reserve_quasi)
 
 
+##############
+# Avec modif #
+##############
+
+
+vec_paiements_totaux_quasi2 = rep(1:dim(triangle)[1])
+for (i in 1:dim(triangle)[1]){
+	vec_paiements_totaux_quasi2[i] = sum(triangle_pred_quasi32[i,])
+}
+
+vec_paiements_totaux_quasi2
+length(vec_paiements_totaux_quasi2)
+
+
+vec_reserve_quasi2 = rep(1:dim(triangle)[1])
+for (i in 1: dim(triangle)[1]){
+	vec_reserve_quasi2[i] = vec_paiements_totaux_quasi2[i] - triangle[i,dim(triangle)[2]-i+1]
+}
+vec_reserve_quasi2
+sum(vec_reserve_quasi2)
+
+
+
+
 #===============#
 # Neg binomiale #
 #===============#
@@ -397,7 +458,88 @@ vec_reserve_nb
 sum(vec_reserve_nb)
 
 
+#---------------------------------------------#
+# 			Calcul des MSE 		    #
+#---------------------------------------------#
 
+
+#====================#
+# Pour Poisson 	   #
+#====================#
+
+
+
+
+tri_cumul_poisson = triangle_pred
+for (j in 2:dim(triangle)[2]){
+	tri_cumul_poisson[,j] = tri_cumul_poisson[,j-1] + triangle_pred[,j]
+}
+tri_cumul_poisson
+tri_MSE_poisson = triangle - tri_cumul_poisson
+
+
+
+vec_res_poisson  = as.vector(as.matrix(tri_MSE_poisson))
+vec_res_poisson = vec_res_poisson[-which(is.na(vec_res_poisson))]
+vec_res_poisson
+summary(vec_res_poisson)
+
+hist(vec_res_poisson)
+
+data_res_poisson = data.frame(vec_res_poisson)
+
+ggplot(data_res_poisson, aes(x = data_res_poisson[,1])) + 
+	geom_histogram(aes(y = ..density..),color ='blue', fill = 'blue')+
+	geom_density(alpha = 0.5,fill = 'red')
+
+
+ggplot(data_res_poisson, aes(x = data_res_poisson[,1])) + 
+	geom_histogram(color ='blue', fill = 'sky blue')+
+	xlab("Résidus")+
+	ylab("Fréquence")+
+	ggtitle("Histogramme des résidus avec une loi de Poisson")
+
+tri_MSE_poisson
+MSE_poisson = sum(tri_MSE_poisson^2, na.rm = T)
+MSE_poisson
+MSE_poisson/105
+sqrt(MSE_poisson)
+sqrt(MSE_poisson/105)
+
+
+
+
+#===============#
+# Neg binomiale #
+#===============#
+
+
+tri_cumul_nb = triangle_pred_nb
+for (j in 2:dim(triangle)[2]){
+	tri_cumul_nb[,j] = tri_cumul_nb[,j-1] + triangle_pred_nb[,j]
+}
+tri_cumul_nb
+tri_MSE_nb = triangle - tri_cumul_nb
+tri_MSE_nb
+MSE_nb = sum(tri_MSE_nb^2, na.rm = T)
+MSE_nb
+MSE_nb/105
+sqrt(MSE_nb)
+sqrt(MSE_nb/105)
+
+
+vec_res_nb  = as.vector(as.matrix(tri_MSE_nb))
+vec_res_nb = vec_res_nb[-which(is.na(vec_res_nb))]
+vec_res_nb
+
+summary(vec_res_nb)
+
+data_res_nb = data.frame(vec_res_nb)
+ggplot(data_res_nb, aes(x = data_res_nb[,1])) + 
+	geom_histogram(color ='blue', fill = 'sky blue')+
+	xlab("Résidus")+
+	ylab("Fréquence")+
+	ggtitle("Histogramme des résidus avec une loi Négative Binomiale")
 
 
 
@@ -406,11 +548,12 @@ sum(vec_reserve_nb)
 ## On va utiliser le bootstrap pour obtneir notre quantile 99.5%
 BCL1 = BootChainLadder ( Triangle = triangle, R = 999 , process.distr = "od.pois")
 BCL1
-plot(BCL1)
+plot(BCL1, title = "Bootstrap avec loi de Poisson")
 
 BCL2 = BootChainLadder ( Triangle = triangle, R = 999 , process.distr = "gamma")
 BCL2
-plot(BCL2)
+plot(BCL2, title = "Bootstrap avec loi Gamma")
+
 
 
 
