@@ -44,6 +44,10 @@ incr
 chain_std1 = MackChainLadder(triangle)
 chain_std1
 
+plot(chain_std1)
+plot(chain_std1, lattice = T)
+
+
 #On va construire le vecteur des cadences de paiements
 cad_CH1 = rep(1,length(chain_std1$f))
 for (i in 1:length(chain_std1$f)){
@@ -55,6 +59,70 @@ cad_CH1
 # Ultimate Loss and Tail Factor
 chain_std2 = MackChainLadder(triangle, tail = T)
 chain_std2
+
+
+#Méthode avec pondération différente
+
+#On construit le triangle des link ratios
+tri_facteurs = triangle
+tri_facteurs = triangle[,-1]
+tri_facteurs
+
+for (j in 1:(dim(triangle)[2]-1)){
+	for (i in  1:(dim(triangle)[1]-j)){
+		tri_facteurs[i,j] = triangle[i,j+1]/triangle[i,j]
+	}
+}
+tri_facteurs = tri_facteurs[-dim(tri_facteurs)[1],]
+triangle
+tri_facteurs
+
+
+#On va maintenant introduire le poids omega_i,j = i+j+1 et calculer notre vecteur de coeff de passage
+
+omega = matrix(0, nrow = dim(triangle)[1]-1, ncol = dim(triangle)[2]-1)
+for (i in 1:(dim(triangle)[1]-1)){
+	for (j in 1:(dim(triangle)[2]-1)){
+		omega[i,j] = i+j-1
+	}	
+}
+omega
+
+coeff_passage = rep(1,dim(tri_facteurs)[2])
+for (j in 1:length(coeff_passage)){
+	coeff_passage[j] = (omega[1:(dim(tri_facteurs)[1]-j+1),j]%*% tri_facteurs[1:(dim(tri_facteurs)[1]-j+1),j]) / (omega[1:(dim(tri_facteurs)[1]-j+1),j] %*% rep(1,dim(tri_facteurs)[1]-j+1))
+}
+coeff_passage = c(coeff_passage,1)
+#On rajoute 1 pour avoir la même taille que chain_std1$f
+length(coeff_passage) == length(chain_std1$f)
+
+cad_CL2 = coeff_passage
+for (i in 1:length(cad_CL2)){
+	cad_CL2[i] = 1/prod(coeff_passage[i:length(coeff_passage)])
+}
+cad_CL2
+
+#Maintenant on va projeter la partie inférieure du triangle de charge grâce à ce coeff_passage
+
+triangle_CL2 = triangle
+for (i in 1:dim(triangle)[1]){
+	for (j in 1:dim(triangle)[2]){
+		if (is.na(triangle[i,j])){
+			triangle_CL2[i,j] = triangle_CL2[i,j-1] * coeff_passage[j-1]
+		}
+	}
+}
+triangle_CL2
+
+#Calcul des IBNR
+vec_paiements = rep(1, dim(triangle)[1]-1)
+for (i in 1:length(vec_paiements)){
+	vec_paiements[i] = triangle_CL2[i+1,dim(triangle_CL2)[2]] - triangle_CL2[i+1,dim(triangle_CL2)[2]-i]
+}
+
+vec_paiements
+sum(vec_paiements)
+
 
 
 #-------------------------------------------------#
@@ -82,7 +150,10 @@ data_vec
 
 ggplot(data_vec,aes(x = data_vec[,1], y=data_vec[,2]))+
 	geom_point(shape = 1)+
-	geom_smooth(method=lm)
+	geom_smooth(method=lm)+
+	xlab("Paiements cumulés - Année J")+
+	ylab("Paiements cumulés - Année J+1")+
+	ggtitle("Vérification hypothèse Chain Ladder")
 
 # -> L'hypothèse centrale de Chain Ladder semble vérifiée
 
@@ -95,8 +166,8 @@ CDR(chain_std1)
 
 #On va empiler les incréments de paiements en 1 vecteur
 incr_emp = as.vector(as.matrix(incr))
-ligne = as.factor(rep(1:dim(triangle)[2], each = dim(triangle)[2]))
-colonne = as.factor( rep(1:dim(triangle)[2], dim(triangle)[2]))
+ligne = as.factor(rep(1:dim(triangle)[2],  times = dim(triangle)[2]))
+colonne = as.factor( rep(1:dim(triangle)[2], each = dim(triangle)[2]))
 
 ligne
 colonne
@@ -116,8 +187,8 @@ summary(reg_quasi_poiss)
 ligne_quasi = ligne
 colonne_quasi = colonne
 
-ligne_quasi[which(ligne == 12 | ligne == 14)] = "1"
-colonne_quasi[which(colonne == 2 | colonne == 3 | colonne == 4 | colonne == 5 |colonne == 6)] = "1"
+colonne_quasi[which(colonne == 12 | colonne == 14)] = "1"
+ligne_quasi[which(ligne == 2 | ligne == 3 | ligne == 4 | ligne == 5 |ligne == 6)] = "1"
 
 data_reg2 = data.frame(incr_emp, ligne_quasi, colonne_quasi)
 
@@ -154,11 +225,11 @@ prod(pred_poiss1 == pred_quasi_poiss)
 annee_new2 = rep(1:dim(triangle)[1],times = dim(triangle)[1])
 dvpt_new2 = rep(1:dim(triangle)[2],each = dim(triangle)[2])
 
-annee_new2[which(annee_new == 12 | annee_new == 14)] = "1"
-dvpt_new2[which(dvpt_new ==2 | dvpt_new == 3 | dvpt_new == 4 | dvpt_new == 5 | dvpt_new ==6)] = "1"
+dvpt_new2[which(dvpt_new == 12 | dvpt_new == 14)] = "1"
+annee_new2[which(annee_new ==2 | annee_new == 3 | annee_new == 4 | annee_new == 5 | annee_new ==6)] = "1"
 
 newbase2 = data.frame(as.factor(annee_new2), as.factor(dvpt_new2))
-
+head(newbase2, 8)
 pred_quasi_poiss2 = predict(reg_quasi_poiss2, type = 'response', newdata = newbase2)
 summary(pred_quasi_poiss2)
 
@@ -336,4 +407,11 @@ sum(vec_reserve_nb)
 BCL1 = BootChainLadder ( Triangle = triangle, R = 999 , process.distr = "od.pois")
 BCL1
 plot(BCL1)
+
+BCL2 = BootChainLadder ( Triangle = triangle, R = 999 , process.distr = "gamma")
+BCL2
+plot(BCL2)
+
+
+
 #################################################################
